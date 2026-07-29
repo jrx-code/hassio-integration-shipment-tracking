@@ -1,46 +1,77 @@
-# InPost Paczkomaty — Home Assistant integration
+<div align="center">
 
-Custom integration tracking InPost parcels natively in Home Assistant, via the
-legacy SMS-auth mobile API (`api-inmobile-pl.easypack24.net`). One HA device per
-InPost account; add multiple accounts as separate config entries.
+<img src=".github/assets/hero.svg" alt="InPost for Home Assistant" width="880">
 
-Ported from the standalone MQTT poller (`private/inpost-poller`) — the verified
-API client (SMS auth, ETag pagination, parcel categorisation) is reused as
-`api.py`. `requirements: []` — pure stdlib.
+<br>
 
-## Entities (per account)
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jrx-code&repository=hassio-integration-inpost&category=integration)
 
-| Entity | State | Attributes |
+![HACS Custom](https://img.shields.io/badge/HACS-Custom-FFCD00?style=flat-square)
+![Home Assistant](https://img.shields.io/badge/Home_Assistant-2024.1+-18BCF2?style=flat-square&logo=homeassistant&logoColor=white)
+![stdlib only](https://img.shields.io/badge/deps-stdlib_only-3776AB?style=flat-square&logo=python&logoColor=white)
+![License](https://img.shields.io/github/license/jrx-code/hassio-integration-inpost?style=flat-square&color=FFCD00)
+![Made in Poland](https://img.shields.io/badge/made_in-🇵🇱_Poland-white?style=flat-square)
+
+**Track your InPost parcels natively in Home Assistant — ready-to-pickup, in-transit and archive, as first-class entities.**
+
+</div>
+
+---
+
+## ✨ Features
+
+- 📥 **Do odbioru** — how many parcels are ready to pick up, with sender, locker, pickup code, expiry and QR payload in attributes
+- 🚚 **W drodze** — parcels on the way, with human-readable Polish statuses
+- 🗄️ **Archiwum** — recently delivered / closed parcels (capped, configurable)
+- 👥 **Multi-account** — add several InPost numbers, each as its own device
+- 🔑 **SMS login, no scraping** — official legacy mobile auth; the refresh token is stored encrypted by HA
+- 🧩 **Zero dependencies** — pure Python stdlib (`requirements: []`)
+- 🎨 **Native branding** — proper InPost icon in the integrations list
+
+## 📦 Entities (per account)
+
+| Entity | State | Key attributes |
 |---|---|---|
-| `binary_sensor` — Do odbioru | ON when any parcel is ready | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]`, `w_drodze[]` |
-| `sensor` — Do odbioru | ready count | — |
-| `sensor` — W drodze | in-transit count | — |
-| `sensor` — Archiwum | archived count | `archiwum[]` (latest N, capped) |
+| `sensor` · **Do odbioru** | number ready to pick up | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]` (nadawca, kod odbioru, paczkomat, adres, termin, `qr`), `w_drodze[]` |
+| `sensor` · **W drodze** | number in transit | — |
+| `sensor` · **Archiwum** | number archived | `archiwum[]` (latest N) |
 
-Parcel attributes mirror the MQTT poller's shape (Polish keys, incl. `qr` payload
-for a Lovelace-rendered pickup QR), so existing cards port over.
+> The `qr` payload lets a Lovelace card render the compartment-opening QR client-side.
 
-## Setup
+## 🚀 Installation
 
-Settings → Devices & Services → **Add Integration** → *InPost Paczkomaty*.
-Wizard: alias → phone prefix (dropdown, default `+48`) → phone → SMS code.
-When the refresh token expires, HA triggers a re-auth (new SMS).
+### HACS (recommended)
 
-Options (per entry): polling interval (default 15 min), archived-parcels cap,
-ready-to-pickup notification flag.
+1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-inpost` as **Integration** — or just click the **Open in HACS** badge above.
+2. Install **InPost Paczkomaty**, then restart Home Assistant.
 
-## Install
+### Manual
 
-- **HACS**: add this repo as a custom repository (category: Integration).
-- **Manual**: copy `custom_components/inpost/` into your HA `config/custom_components/`.
+Copy `custom_components/inpost/` into your Home Assistant `config/custom_components/` and restart.
 
-## Brand icon
+## ⚙️ Configuration
 
-`custom_components/inpost/brand/` ships local `icon.png`/`logo.png` (+ `@2x`),
-served by HA's `brands` component from the integration directory (no brands-repo
-PR needed on HA 2026.x+).
+**Settings → Devices & Services → Add Integration → InPost Paczkomaty**
 
-## Status
+```
+1.  Alias        →  e.g. "Peer A"
+2.  Prefix       →  dropdown, default +48
+3.  Phone        →  9 digits
+4.  SMS code     →  6 digits sent to that number
+```
 
-Work in progress. API client verified live; config flow, coordinator and entities
-load cleanly on HA 2026.7.4. End-to-end SMS flow pending live verification.
+When the refresh token expires, Home Assistant starts a re-auth (a fresh SMS). Per-entry **options**: polling interval (default 15 min), archived-parcels cap, ready-to-pickup notification flag.
+
+## 🔧 Under the hood
+
+- **Legacy SMS auth** on the mobile API — no captcha, unlike the OAuth backend (Cloudflare Turnstile).
+- **ETag pagination** on `/v4/parcels/tracked` — InPost (ab)uses `ETag`/`If-None-Match` as a page cursor; a naive single GET misses recent parcels.
+- Blocking `urllib` client driven from Home Assistant's executor; `304` responses keep the last snapshot.
+
+## ⚠️ Disclaimer
+
+Unofficial integration, not affiliated with or endorsed by InPost. It talks to the InPost mobile API on your behalf using your own account; use it at your own discretion. InPost name and logo belong to their respective owner.
+
+## 📄 License
+
+[MIT](LICENSE) © JI ENGINEERING

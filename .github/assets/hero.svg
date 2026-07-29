@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 880 260" width="880" height="260" role="img" aria-label="InPost for Home Assistant">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#15171a"/>
+      <stop offset="1" stop-color="#20242a"/>
+    </linearGradient>
+    <linearGradient id="yellow" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFDE33"/>
+      <stop offset="1" stop-color="#FFCD00"/>
+    </linearGradient>
+    <filter id="glow" x="-60%" y="-60%" width="220%" height="220%">
+      <feGaussianBlur stdDeviation="4" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+
+  <rect width="880" height="260" rx="26" fill="url(#bg)"/>
+  <rect x="1.5" y="1.5" width="877" height="257" rx="25" fill="none" stroke="#FFCD00" stroke-opacity=".18"/>
+
+  <!-- dotted approach path -->
+  <path d="M 210 100 H 660" stroke="#3C4046" stroke-width="2" stroke-dasharray="2 9" stroke-linecap="round"/>
+
+  <!-- paczkomat locker -->
+  <g transform="translate(70,50)">
+    <rect x="0" y="0" width="120" height="160" rx="12" fill="#2A2D31" stroke="#3C4046"/>
+    <g stroke="#3C4046" stroke-width="2">
+      <line x1="8" y1="40" x2="112" y2="40"/>
+      <line x1="8" y1="80" x2="112" y2="80"/>
+      <line x1="8" y1="120" x2="112" y2="120"/>
+    </g>
+    <g fill="#4A4E54">
+      <rect x="98" y="16" width="6" height="12" rx="3"/>
+      <rect x="98" y="96" width="6" height="12" rx="3"/>
+      <rect x="98" y="136" width="6" height="12" rx="3"/>
+    </g>
+    <!-- READY compartment (row 2) glowing -->
+    <g filter="url(#glow)">
+      <rect x="10" y="44" width="100" height="32" rx="5" fill="url(#yellow)">
+        <animate attributeName="opacity" values=".4;1;.4" dur="1.9s" repeatCount="indefinite"/>
+      </rect>
+    </g>
+    <rect x="46" y="50" width="26" height="20" rx="3" fill="#1c1e21"/>
+    <line x1="59" y1="50" x2="59" y2="70" stroke="#FFCD00" stroke-width="2"/>
+  </g>
+
+  <!-- arriving parcel -->
+  <rect width="24" height="19" rx="4" fill="url(#yellow)" opacity="0">
+    <animate attributeName="opacity" values="0;1;1;0" keyTimes="0;0.14;0.82;1" dur="4.2s" repeatCount="indefinite"/>
+    <animateMotion dur="4.2s" repeatCount="indefinite" calcMode="spline" keyTimes="0;1" keySplines="0.45 0 0.2 1"
+      path="M 636 90 L 196 90"/>
+    <animateTransform attributeName="transform" type="rotate" additive="sum"
+      values="0 12 9; -3 12 9; 0 12 9" dur="1.1s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- title -->
+  <text x="240" y="112" font-family="Segoe UI, Ubuntu, system-ui, -apple-system, Roboto, sans-serif"
+        font-size="52" font-weight="800" fill="url(#yellow)">InPost</text>
+  <text x="243" y="150" font-family="Segoe UI, Ubuntu, system-ui, -apple-system, Roboto, sans-serif"
+        font-size="24" font-weight="600" fill="#F5F6F8">Home Assistant Integration</text>
+  <text x="243" y="180" font-family="Segoe UI, Ubuntu, system-ui, -apple-system, Roboto, sans-serif"
+        font-size="14.5" fill="#9AA0A6">Śledzenie paczek: do odbioru · w drodze · archiwum — natywnie w HA</text>
+
+  <!-- state chips -->
+  <g font-family="Segoe UI, Ubuntu, system-ui, sans-serif" font-size="13" font-weight="700">
+    <g transform="translate(243,198)">
+      <rect width="116" height="27" rx="13.5" fill="url(#yellow)"/>
+      <circle cx="16" cy="13.5" r="4" fill="#1c1e21"><animate attributeName="r" values="4;5.5;4" dur="1.9s" repeatCount="indefinite"/></circle>
+      <text x="28" y="18" fill="#1c1e21">Do odbioru</text>
+    </g>
+    <g transform="translate(369,198)">
+      <rect width="104" height="27" rx="13.5" fill="none" stroke="#4A4E54"/>
+      <text x="14" y="18" fill="#C7CBD1">↗ W drodze</text>
+    </g>
+    <g transform="translate(483,198)">
+      <rect width="104" height="27" rx="13.5" fill="none" stroke="#4A4E54"/>
+      <text x="14" y="18" fill="#C7CBD1">▤ Archiwum</text>
+    </g>
+  </g>
+</svg>

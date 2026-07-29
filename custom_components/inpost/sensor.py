@@ -15,9 +15,11 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
+    # No "Do odbioru" count sensor — the binary_sensor already signals ready state
+    # and carries do_odbioru_count in its attributes, so a count sensor here would
+    # just duplicate the "Do odbioru" name on the device.
     async_add_entities(
         [
-            InPostCountSensor(coordinator, "do_odbioru", "Do odbioru", "ready", "mdi:package-check"),
             InPostCountSensor(coordinator, "w_drodze", "W drodze", "in_transit", "mdi:truck-delivery"),
             InPostArchiveSensor(coordinator),
         ]

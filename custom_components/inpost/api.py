@@ -75,10 +75,15 @@ class InPostApi:
     def __init__(self, base: str, user_agent: str) -> None:
         self._base = base.rstrip("/")
         self._ua = user_agent
-        self._ctx = ssl.create_default_context()
+        # SSLContext is created lazily on first request: create_default_context()
+        # is blocking (loads system CAs), and the client is only ever driven from
+        # an executor thread, so this keeps it off the event loop.
+        self._ctx: ssl.SSLContext | None = None
 
     # ---------------- HTTP ----------------
     def _do(self, req: urllib.request.Request):
+        if self._ctx is None:
+            self._ctx = ssl.create_default_context()
         try:
             with urllib.request.urlopen(req, timeout=25, context=self._ctx) as r:
                 return r.status, dict(r.headers), json.loads(r.read().decode() or "{}")

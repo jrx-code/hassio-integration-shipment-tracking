@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add an InPost account",
+        "description": "An SMS code will be sent to this number.",
+        "data": {
+          "alias": "Name (alias)",
+          "prefix": "Phone prefix",
+          "phone": "Phone number (9 digits)"
+        }
+      },
+      "sms": {
+        "title": "Enter the SMS code",
+        "description": "Code sent to {phone}.",
+        "data": { "code": "6-digit code" }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate InPost",
+        "description": "The session for {phone} expired. Send a new SMS code to sign in again."
+      }
+    },
+    "error": {
+      "invalid_phone": "The phone number must be exactly 9 digits.",
+      "cannot_connect": "Could not reach InPost.",
+      "sms_rejected": "InPost did not accept this number.",
+      "invalid_code": "Wrong code or verification failed."
+    },
+    "abort": {
+      "already_configured": "This account is already configured.",
+      "reauth_successful": "Re-authentication successful."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "InPost options",
+        "data": {
+          "scan_interval": "Polling interval (minutes)",
+          "archive_limit": "Archived parcels shown (0-100)",
+          "notify_ready": "Notify on ready-to-pickup"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "do_odbioru": { "name": "Do odbioru" }
+    },
+    "sensor": {
+      "do_odbioru": { "name": "Do odbioru" },
+      "w_drodze": { "name": "W drodze" },
+      "archiwum": { "name": "Archiwum" }
+    }
+  }
+}

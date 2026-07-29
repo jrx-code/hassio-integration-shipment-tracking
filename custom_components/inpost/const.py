@@ -17,9 +17,9 @@ CONF_NOTIFY = "notify_ready"
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 DEFAULT_ARCHIVE_LIMIT = 20
 
-# Legacy SMS-auth backend (no captcha). See reference-poller HANDOVER for why NOT
-# the OAuth backend (Cloudflare Turnstile). Overridable via options if InPost
-# starts gatekeeping the app version.
+# Legacy SMS-auth backend (no captcha). The OAuth backend (account.inpost-group.com)
+# is gatekept by Cloudflare Turnstile, so this legacy endpoint is used instead.
+# Overridable if InPost starts gatekeeping the app version.
 DEFAULT_BASE = "https://api-inmobile-pl.easypack24.net"
 DEFAULT_UA = "InPost-Mobile/3.23.0(32300001) (Android 9; unknown; unknown unknown; en)"
 

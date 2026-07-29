@@ -1,0 +1,7 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+
+# Local dev reference — a copy of the standalone poller (its own repo:
+# private/inpost-poller). Kept locally for reference, not part of this repo.
+reference-poller/

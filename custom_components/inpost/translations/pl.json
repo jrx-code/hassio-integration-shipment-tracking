@@ -1,0 +1,56 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Dodaj konto InPost",
+        "description": "Na ten numer zostanie wysłany kod SMS.",
+        "data": {
+          "alias": "Nazwa (alias)",
+          "prefix": "Prefiks telefonu",
+          "phone": "Numer telefonu (9 cyfr)"
+        }
+      },
+      "sms": {
+        "title": "Wpisz kod SMS",
+        "description": "Kod wysłany na {phone}.",
+        "data": { "code": "6-cyfrowy kod" }
+      },
+      "reauth_confirm": {
+        "title": "Ponowne logowanie InPost",
+        "description": "Sesja dla {phone} wygasła. Wyślij nowy kod SMS, aby zalogować się ponownie."
+      }
+    },
+    "error": {
+      "invalid_phone": "Numer telefonu musi mieć dokładnie 9 cyfr.",
+      "cannot_connect": "Nie udało się połączyć z InPost.",
+      "sms_rejected": "InPost nie przyjął tego numeru.",
+      "invalid_code": "Błędny kod lub weryfikacja się nie powiodła."
+    },
+    "abort": {
+      "already_configured": "To konto jest już skonfigurowane.",
+      "reauth_successful": "Ponowne logowanie zakończone sukcesem."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje InPost",
+        "data": {
+          "scan_interval": "Interwał odpytywania (minuty)",
+          "archive_limit": "Liczba pokazywanych paczek archiwalnych (0-100)",
+          "notify_ready": "Powiadamiaj o gotowych do odbioru"
+        }
+      }
+    }
+  },
+  "entity": {
+    "binary_sensor": {
+      "do_odbioru": { "name": "Do odbioru" }
+    },
+    "sensor": {
+      "do_odbioru": { "name": "Do odbioru" },
+      "w_drodze": { "name": "W drodze" },
+      "archiwum": { "name": "Archiwum" }
+    }
+  }
+}

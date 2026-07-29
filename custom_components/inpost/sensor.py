@@ -1,4 +1,9 @@
-"""InPost sensors: parcel counts per bucket (do odbioru / w drodze / archiwum)."""
+"""InPost sensors: parcel counts per bucket (do odbioru / w drodze / archiwum).
+
+"Do odbioru" is the primary sensor: its state is the number of parcels ready for
+pickup and it carries the full parcel details (ready + in-transit) in attributes,
+so a Lovelace card / automation has everything on one entity.
+"""
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -6,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import InPostConfigEntry
-from .entity import InPostEntity, archive_attrs
+from .entity import InPostEntity, archive_attrs, ready_attrs, transit_attrs
 
 
 async def async_setup_entry(
@@ -15,15 +20,41 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    # No "Do odbioru" count sensor — the binary_sensor already signals ready state
-    # and carries do_odbioru_count in its attributes, so a count sensor here would
-    # just duplicate the "Do odbioru" name on the device.
     async_add_entities(
         [
+            InPostReadySensor(coordinator),
             InPostCountSensor(coordinator, "w_drodze", "W drodze", "in_transit", "mdi:truck-delivery"),
             InPostArchiveSensor(coordinator),
         ]
     )
+
+
+class InPostReadySensor(InPostEntity, SensorEntity):
+    """Number of parcels ready for pickup, with full parcel lists in attributes."""
+
+    _attr_name = "Do odbioru"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "szt."
+    _attr_icon = "mdi:package-variant-closed"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "do_odbioru")
+
+    @property
+    def native_value(self) -> int:
+        data = self.coordinator.data or {}
+        return data.get("counts", {}).get("ready", 0)
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        data = self.coordinator.data or {}
+        counts = data.get("counts", {})
+        return {
+            "do_odbioru_count": counts.get("ready", 0),
+            "w_drodze_count": counts.get("in_transit", 0),
+            "do_odbioru": ready_attrs(data.get("ready", [])),
+            "w_drodze": transit_attrs(data.get("in_transit", [])),
+        }
 
 
 class InPostCountSensor(InPostEntity, SensorEntity):

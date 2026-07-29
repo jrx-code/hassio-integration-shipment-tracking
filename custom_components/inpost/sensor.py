@@ -17,8 +17,8 @@ async def async_setup_entry(
     coordinator = entry.runtime_data
     async_add_entities(
         [
-            InPostCountSensor(coordinator, "do_odbioru", "ready", "mdi:package-check"),
-            InPostCountSensor(coordinator, "w_drodze", "in_transit", "mdi:truck-delivery"),
+            InPostCountSensor(coordinator, "do_odbioru", "Do odbioru", "ready", "mdi:package-check"),
+            InPostCountSensor(coordinator, "w_drodze", "W drodze", "in_transit", "mdi:truck-delivery"),
             InPostArchiveSensor(coordinator),
         ]
     )
@@ -30,10 +30,10 @@ class InPostCountSensor(InPostEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
 
-    def __init__(self, coordinator, key: str, bucket: str, icon: str) -> None:
+    def __init__(self, coordinator, key: str, name: str, bucket: str, icon: str) -> None:
         super().__init__(coordinator, key)
         self._bucket = bucket
-        self._attr_translation_key = key
+        self._attr_name = name
         self._attr_icon = icon
 
     @property
@@ -45,7 +45,7 @@ class InPostCountSensor(InPostEntity, SensorEntity):
 class InPostArchiveSensor(InPostEntity, SensorEntity):
     """Archived parcel count + latest N in attributes (capped by option)."""
 
-    _attr_translation_key = "archiwum"
+    _attr_name = "Archiwum"
     _attr_native_unit_of_measurement = "szt."
     _attr_icon = "mdi:archive"
 

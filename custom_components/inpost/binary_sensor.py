@@ -23,7 +23,7 @@ async def async_setup_entry(
 class InPostReadyBinarySensor(InPostEntity, BinarySensorEntity):
     """Aggregated 'do odbioru' sensor with full parcel lists in attributes."""
 
-    _attr_translation_key = "do_odbioru"
+    _attr_name = "Do odbioru"
     _attr_device_class = BinarySensorDeviceClass.OCCUPANCY
     _attr_icon = "mdi:package-variant-closed"
 

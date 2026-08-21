@@ -19,7 +19,7 @@ from .entity import (
     shared_out_attrs,
     transit_attrs,
 )
-from .share import shared_in, shared_out
+from .share import own_only, shared_in, shared_out
 
 
 async def async_setup_entry(
@@ -31,7 +31,10 @@ async def async_setup_entry(
     async_add_entities(
         [
             InPostReadySensor(coordinator),
-            InPostCountSensor(coordinator, "w_drodze", "W drodze", "in_transit", "mdi:truck-delivery"),
+            InPostCountSensor(
+                coordinator, "w_drodze", "W drodze", "in_transit",
+                "mdi:truck-delivery", own=True,
+            ),
             InPostSharedSensor(coordinator),
             InPostArchiveSensor(coordinator),
         ]
@@ -39,7 +42,12 @@ async def async_setup_entry(
 
 
 class InPostReadySensor(InPostEntity, SensorEntity):
-    """Number of parcels ready for pickup, with full parcel lists in attributes."""
+    """Parcels ready for pickup — **ours plus the ones shared with us**.
+
+    This is the "what can I collect right now" number, so it deliberately spans
+    both: with mirroring on, either household member can open the locker. The
+    in-transit counter next door is the opposite — own parcels only.
+    """
 
     _attr_name = "Do odbioru"
     _attr_state_class = SensorStateClass.MEASUREMENT
@@ -59,41 +67,58 @@ class InPostReadySensor(InPostEntity, SensorEntity):
         data = self.coordinator.data or {}
         counts = data.get("counts", {})
         groups = data.get("pickup_groups", [])
+        transit = own_only(data.get("in_transit", []))
         return {
             "do_odbioru_count": counts.get("ready", 0),
             "grupy_count": len(groups),
-            "w_drodze_count": counts.get("in_transit", 0),
+            # Own parcels only, matching sensor "W drodze".
+            "w_drodze_count": len(transit),
             "do_odbioru": ready_attrs(groups),
-            "w_drodze": transit_attrs(data.get("in_transit", [])),
+            "w_drodze": transit_attrs(transit),
         }
 
 
 class InPostCountSensor(InPostEntity, SensorEntity):
-    """Count of parcels in one bucket."""
+    """Count of parcels in one bucket, optionally restricted to our own.
+
+    "W drodze" counts own parcels only: a parcel a friend shared with us is
+    already reported by the "Udostępnione" sensor, and counting it here too would
+    show six parcels on both accounts when the household really has six in total.
+    """
 
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
 
-    def __init__(self, coordinator, key: str, name: str, bucket: str, icon: str) -> None:
+    def __init__(
+        self, coordinator, key: str, name: str, bucket: str, icon: str, own: bool = False
+    ) -> None:
         super().__init__(coordinator, key)
         self._bucket = bucket
+        self._own = own
         self._attr_name = name
         self._attr_icon = icon
 
     @property
     def native_value(self) -> int:
         data = self.coordinator.data or {}
-        return data.get("counts", {}).get(self._bucket, 0)
+        if not self._own:
+            return data.get("counts", {}).get(self._bucket, 0)
+        return len(own_only(data.get(self._bucket, [])))
 
 
 class InPostSharedSensor(InPostEntity, SensorEntity):
-    """App-to-app sharing, both directions, for one account.
+    """Parcels **shared with this account** by somebody else.
 
-    State counts the *active* parcels this account has handed to somebody else —
-    the visible result of the sharing button / auto-share switch. Parcels shared
-    the other way (somebody handed them to us) are not part of the state, since
-    a single number cannot mean two things; they sit in `otrzymane[]` with their
-    own count.
+    State counts what this person gained through sharing — parcels they do not
+    own but may collect. That makes the three counters add up without overlap:
+
+        Do odbioru = own ready + shared-with-me ready
+        W drodze   = own, in transit
+        Udostępnione = shared with me, active
+
+    The opposite direction (our parcels handed to somebody) never enters the
+    state — those are still our parcels, already counted by the other sensors —
+    but it is kept in ``moje_udostepnione[]`` so a card can show both.
     """
 
     _attr_name = "Udostępnione"
@@ -106,18 +131,18 @@ class InPostSharedSensor(InPostEntity, SensorEntity):
 
     @property
     def native_value(self) -> int:
-        return len(shared_out(self.coordinator.active()))
+        return len(shared_in(self.coordinator.active()))
 
     @property
     def extra_state_attributes(self) -> dict:
         active = self.coordinator.active()
-        out = shared_out(active)
         incoming = shared_in(active)
+        outgoing = shared_out(active)
         return {
-            "udostepnione_count": len(out),
-            "otrzymane_count": len(incoming),
-            "udostepnione": shared_out_attrs(out),
-            "otrzymane": shared_in_attrs(incoming, self.coordinator.friends),
+            "udostepnione_count": len(incoming),
+            "moje_udostepnione_count": len(outgoing),
+            "udostepnione": shared_in_attrs(incoming, self.coordinator.friends),
+            "moje_udostepnione": shared_out_attrs(outgoing),
         }
 
 

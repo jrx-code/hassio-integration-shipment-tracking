@@ -33,9 +33,9 @@
 
 | Entity | State | Key attributes |
 |---|---|---|
-| `sensor` · **Do odbioru** | number ready to pick up | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]` (nadawca, kod odbioru, paczkomat, adres, termin, `qr`), `w_drodze[]` |
-| `sensor` · **W drodze** | number in transit | — |
-| `sensor` · **Udostępnione** | number of active parcels shared with someone | `udostepnione[]` (numer, nadawca, status, `dla`, kod odbioru, paczkomat), `otrzymane[]` (same, plus `od` and `podglad`), `otrzymane_count` |
+| `sensor` · **Do odbioru** | number ready to pick up — **own + shared with me** | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]` (nadawca, kod odbioru, paczkomat, adres, termin, `qr`), `w_drodze[]` |
+| `sensor` · **W drodze** | number in transit — **own parcels only** | — |
+| `sensor` · **Udostępnione** | active parcels **shared with this account** by someone else | `udostepnione[]` (numer, nadawca, status, `od`, kod odbioru, paczkomat, `podglad`), `moje_udostepnione[]` (the other direction, with `dla`), both `_count`s |
 | `sensor` · **Archiwum** | number archived | `archiwum[]` (latest N) |
 
 > The `qr` payload lets a Lovelace card render the compartment-opening QR client-side.
@@ -57,8 +57,16 @@ long before the parcel reaches the locker, so the peer follows the whole journey
 and gets the pickup code the moment it exists.
 
 The recipient's account then lists those parcels normally — including pickup code
-and QR — so their sensors, QR image entities and cards need no extra wiring. What
-went out and what came in is summarised by the **Udostępnione** sensor.
+and QR — so their sensors, QR image entities and cards need no extra wiring.
+
+The three counters are designed not to overlap, so two mirrored accounts never
+report the same parcel twice:
+
+```
+Do odbioru    = own ready      + shared-with-me ready
+W drodze      = own in transit
+Udostępnione  = shared with me, active
+```
 
 Prerequisites and limits:
 

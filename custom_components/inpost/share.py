@@ -78,6 +78,16 @@ def shareable(parcels: list[dict], uuid: str) -> list[str]:
     return out
 
 
+def own_only(parcels: list[dict]) -> list[dict]:
+    """Parcels this account actually owns.
+
+    A parcel handed to a friend stays ours (``OWN`` with ``shared_to`` filled in);
+    only the friend's copy is ``FRIEND``. Parcels with no ownership field at all
+    predate the flag and count as ours.
+    """
+    return [p for p in parcels or [] if p.get("ownership") in (None, "OWN")]
+
+
 def shared_out(parcels: list[dict]) -> list[dict]:
     """Active parcels of this account that are shared with somebody."""
     return [p for p in parcels or [] if p.get("shared_to")]

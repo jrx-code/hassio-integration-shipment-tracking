@@ -8,7 +8,7 @@
 
 ![HACS Custom](https://img.shields.io/badge/HACS-Custom-FFCD00?style=flat-square)
 ![Home Assistant](https://img.shields.io/badge/Home_Assistant-2024.1+-18BCF2?style=flat-square&logo=homeassistant&logoColor=white)
-![stdlib only](https://img.shields.io/badge/deps-stdlib_only-3776AB?style=flat-square&logo=python&logoColor=white)
+![deps: segno](https://img.shields.io/badge/deps-segno-3776AB?style=flat-square&logo=python&logoColor=white)
 ![License](https://img.shields.io/github/license/jrx-code/hassio-integration-inpost?style=flat-square&color=FFCD00)
 ![Made in Poland](https://img.shields.io/badge/made_in-🇵🇱_Poland-white?style=flat-square)
 
@@ -24,8 +24,9 @@
 - 🚚 **W drodze** — parcels on the way, with human-readable Polish statuses
 - 🗄️ **Archiwum** — recently delivered / closed parcels (capped, configurable)
 - 👥 **Multi-account** — add several InPost numbers, each as its own device
+- 🤝 **App-to-app sharing** — hand a ready parcel to another configured account (a paired InPost "friend"), on a button press or automatically
 - 🔑 **SMS login, no scraping** — official legacy mobile auth; the refresh token is stored encrypted by HA
-- 🧩 **Zero dependencies** — pure Python stdlib (`requirements: []`)
+- 🧩 **Almost dependency-free** — stdlib `urllib` client; the only requirement is `segno`, for rendering pickup QR codes
 - 🎨 **Native branding** — proper InPost icon in the integrations list
 
 ## 📦 Entities (per account)
@@ -37,6 +38,33 @@
 | `sensor` · **Archiwum** | number archived | `archiwum[]` (latest N) |
 
 > The `qr` payload lets a Lovelace card render the compartment-opening QR client-side.
+> Each `do_odbioru[]` row also reports its sharing state: `wlasciciel` (`OWN` /
+> `FRIEND` / `OBSERVED`), `udostepniona_do` and `mozna_udostepnic`.
+
+## 🤝 Sharing a parcel with another account
+
+Configure two InPost accounts and each device gains one entity per *other*
+account:
+
+| Entity | What it does |
+|---|---|
+| `button` · **Udostępnij → \<alias\>** | shares every ready parcel not already shared with that account |
+| `switch` · **Auto-udostępnianie → \<alias\>** | keeps doing it for each newly ready parcel, on every poll |
+
+The recipient's account then lists those parcels normally — including pickup code
+and QR — so their sensors, QR image entities and cards need no extra wiring.
+
+Prerequisites and limits:
+
+- The two InPost accounts must already be **paired in the InPost mobile app**
+  (Settings → *Sparuj użytkownika*, invitation code). Pairing cannot be done over
+  this API; until it is done, both entities stay *unavailable*.
+- InPost decides per parcel whether sharing is allowed (`operations.canShareParcel`);
+  parcels it refuses are skipped.
+- **Sharing is not undone here.** Turning the switch off stops new shares; it does
+  not withdraw parcels already shared. Withdrawing is an app-side action.
+- Entities for a peer account are created when the entry is set up — after adding
+  a *new* account, reload the other one so it picks up the new peer.
 
 ## 🚀 Installation
 
@@ -54,7 +82,7 @@ Copy `custom_components/inpost/` into your Home Assistant `config/custom_compone
 **Settings → Devices & Services → Add Integration → InPost Paczkomaty**
 
 ```
-1.  Alias        →  e.g. "Peer A"
+1.  Alias        →  e.g. "Home"
 2.  Prefix       →  dropdown, default +48
 3.  Phone        →  9 digits
 4.  SMS code     →  6 digits sent to that number

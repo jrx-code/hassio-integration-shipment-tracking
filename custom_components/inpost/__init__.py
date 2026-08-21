@@ -7,7 +7,12 @@ from homeassistant.core import HomeAssistant
 
 from .coordinator import InPostCoordinator
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.IMAGE,
+    Platform.BUTTON,
+    Platform.SWITCH,
+]
 
 type InPostConfigEntry = ConfigEntry[InPostCoordinator]
 

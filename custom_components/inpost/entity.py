@@ -26,20 +26,41 @@ class InPostEntity(CoordinatorEntity[InPostCoordinator]):
         )
 
 
-def ready_attrs(parcels: list[dict]) -> list[dict]:
-    """Mirror of the MQTT `do_odbioru[]` attribute shape (Polish keys)."""
-    return [
-        {
-            "nadawca": p.get("sender"),
-            "kod_odbioru": p.get("open_code"),
-            "paczkomat": p.get("locker"),
-            "adres": p.get("address"),
-            "termin_odbioru": p.get("expiry"),
-            "qr": p.get("qr"),
-            "multiskrytka": p.get("multi_count"),
-        }
-        for p in parcels
-    ]
+def ready_attrs(groups: list[dict]) -> list[dict]:
+    """`do_odbioru[]` attribute list — ONE row per pickup group.
+
+    A multiskrytka collapses to a single row (its leader) with ``multiskrytka``
+    set to the parcel count and every member's number/code kept as a fallback.
+    Standalone parcels stay 1-element groups (``multiskrytka`` = None). Keys stay
+    backward-compatible with the previous per-parcel shape.
+    """
+    rows: list[dict] = []
+    for g in groups:
+        rep = g.get("rep") or {}
+        multi = g.get("count", 1) > 1
+        members = g.get("members") or [rep]
+        rows.append(
+            {
+                "numer": rep.get("shipment"),
+                "nadawca": rep.get("sender"),
+                "kod_odbioru": rep.get("open_code"),
+                "paczkomat": rep.get("locker"),
+                "adres": rep.get("address"),
+                "termin_odbioru": rep.get("expiry"),
+                "qr": rep.get("qr"),
+                "qr_url": g.get("qr_url"),
+                "multiskrytka": g.get("count") if multi else None,
+                "paczki": [m.get("shipment") for m in members] if multi else None,
+                "kody_fallback": [m.get("open_code") for m in members] if multi else None,
+                # App-to-app sharing state, per group leader.
+                "wlasciciel": rep.get("ownership"),
+                "udostepniona_do": [
+                    s.get("name") for s in rep.get("shared_to") or []
+                ],
+                "mozna_udostepnic": bool(rep.get("can_share")),
+            }
+        )
+    return rows
 
 
 def transit_attrs(parcels: list[dict]) -> list[dict]:

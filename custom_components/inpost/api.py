@@ -1,9 +1,8 @@
 """InPost mobile-API client (legacy SMS auth track).
 
-Ported verbatim in behaviour from the reference poller (inpost_poller.py),
-which was reverse-engineered from IFOSSA/inpost-python and verified live. stdlib
-only (urllib) — blocking, so callers must run it in an executor. Key gotchas kept
-intact: ETag pagination on /v4/parcels/tracked, legacy SMS backend (no captcha),
+Reverse-engineered from the InPost mobile app and verified against the live API.
+stdlib only (urllib) — blocking, so callers must run it in an executor. Key
+gotchas: ETag pagination on /v4/parcels/tracked, legacy SMS backend (no captcha),
 304 => NotModified.
 """
 from __future__ import annotations
@@ -36,11 +35,30 @@ def _state_of(status: str) -> str:
     return "archived"
 
 
+def _phone_value(raw) -> str | None:
+    """Phone numbers come as a bare string on /v1 and as {prefix,value} on /v2."""
+    if isinstance(raw, dict):
+        return raw.get("value")
+    return raw or None
+
+
+def _shared_to(p: dict) -> list[dict]:
+    return [
+        {
+            "uuid": f.get("uuid"),
+            "name": f.get("name"),
+            "phone": _phone_value(f.get("phoneNumber")),
+        }
+        for f in (p.get("sharedTo") or [])
+    ]
+
+
 def _map_parcel(p: dict, state: str) -> dict:
     """Flatten one raw InPost parcel into the shape used by entities/attributes."""
     point = p.get("pickUpPoint") or {}
     addr = point.get("addressDetails") or {}
     mc = p.get("multiCompartment") or {}
+    ops = p.get("operations") or {}
     return {
         "shipment": p.get("shipmentNumber"),
         "status": p.get("status", "UNKNOWN"),
@@ -56,6 +74,12 @@ def _map_parcel(p: dict, state: str) -> dict:
         "stored": p.get("storedDate"),
         "multi_uuid": mc.get("uuid"),
         "multi_count": len(mc.get("shipmentNumbers", [])) or None,
+        # App-to-app sharing. `ownership` is OWN for our own parcels, FRIEND for
+        # ones someone shared with us (those carry openCode/qrCode too) and
+        # OBSERVED for view-only shares (openCode/qrCode are null there).
+        "ownership": p.get("ownershipStatus"),
+        "shared_to": _shared_to(p),
+        "can_share": bool(ops.get("canShareParcel")),
     }
 
 
@@ -152,3 +176,49 @@ class InPostApi:
             seen.add(new_etag)
             etag = new_etag
         return parcels
+
+    # ---------------- app-to-app sharing ----------------
+    def get_friends(self, auth_token: str) -> list[dict]:
+        """Paired InPost users ("znajomi") of this account.
+
+        GOTCHA: the path must NOT carry a trailing slash — `/v2/friends/` answers
+        404 with an empty body (same shape an unknown route returns), while
+        `/v2/friends` answers 200. `/v1/friends` works too but returns the phone
+        number as a bare string; v2 returns {prefix,value}, so v2 it is.
+        """
+        st, _h, d = self._get("/v2/friends", auth_token)
+        if st != 200:
+            raise InPostError(f"get_friends failed: HTTP {st} {d}")
+        out: list[dict] = []
+        for f in d.get("friends", []):
+            phone = f.get("phoneNumber") or {}
+            out.append({
+                "uuid": f.get("uuid"),
+                "name": f.get("name"),
+                "prefix": phone.get("prefix") if isinstance(phone, dict) else None,
+                "phone": _phone_value(phone),
+            })
+        return out
+
+    def share_parcels(
+        self, auth_token: str, shipments: list[str], friend_uuids: list[str]
+    ) -> None:
+        """Share parcels app-to-app with already-paired friends.
+
+        The recipient then sees each parcel in their own /v4/parcels/tracked with
+        ownershipStatus=FRIEND, including openCode and qrCode — i.e. a second HA
+        account running this integration picks it up on its next poll with no
+        extra wiring. Sharing is not undone by this client; InPost's unshare
+        endpoint (if any) is unverified.
+        """
+        if not shipments or not friend_uuids:
+            return
+        body = {
+            "parcels": [
+                {"shipmentNumber": str(s), "friendUuids": list(friend_uuids)}
+                for s in shipments
+            ]
+        }
+        st, _h, d = self._post("/v4/parcels/shared", body, auth_token)
+        if st != 200:
+            raise InPostError(f"share_parcels failed: HTTP {st} {d}")

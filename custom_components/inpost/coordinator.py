@@ -10,6 +10,8 @@ from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import InPostApi, InPostError, NotModified, ReauthRequired, categorize_parcels
+from .pickup import group_qr_data_url, pickup_groups
+from .share import friend_uuid, shareable
 from .const import (
     CONF_ARCHIVE_LIMIT,
     CONF_REFRESH_TOKEN,
@@ -46,6 +48,13 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         )
         self.entry = entry
         self._api = InPostApi(DEFAULT_BASE, DEFAULT_UA)
+        # Phones of peer accounts this one auto-shares ready parcels with. Owned
+        # by the auto-share switches; empty means manual (button) sharing only.
+        self.auto_share: set[str] = set()
+        # (shipment, friend uuid) pairs already POSTed. InPost only reflects a
+        # share in the parcel payload on the next poll, so without this a share
+        # issued between two refreshes would be re-sent.
+        self._shared_marks: set[tuple[str, str]] = set()
 
     @property
     def archive_limit(self) -> int:
@@ -55,12 +64,26 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         """Blocking fetch — runs in the executor."""
         token = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
         parcels = self._api.get_parcels(token)
+        try:
+            friends = self._api.get_friends(token)
+        except InPostError as err:
+            # Sharing is a side feature; a friends-list hiccup must not blank out
+            # the parcel sensors. Keep whatever list we had.
+            _LOGGER.debug("friends fetch failed: %s", err)
+            friends = (self.data or {}).get("friends", [])
         cat = categorize_parcels(parcels)
         cat["archived"].sort(
             key=lambda p: p.get("stored") or p.get("expiry") or "", reverse=True
         )
+        groups = pickup_groups(cat["ready"])
+        for g in groups:
+            # rendered here (executor) — segno is blocking; attribute consumers
+            # (sensor property) must not render on the event loop.
+            g["qr_url"] = group_qr_data_url(g)
         return {
             "ready": cat["ready"],
+            "friends": friends,
+            "pickup_groups": groups,
             "in_transit": cat["in_transit"],
             "archived": cat["archived"],
             "counts": {
@@ -70,9 +93,63 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             },
         }
 
+    # ---------------- app-to-app sharing ----------------
+    @property
+    def friends(self) -> list[dict]:
+        return (self.data or {}).get("friends", [])
+
+    def friend_uuid_for(self, phone: str) -> str | None:
+        return friend_uuid(self.friends, phone)
+
+    def pending_for(self, uuid: str, data: dict | None = None) -> list[str]:
+        """Ready parcels not yet shared with `uuid` (and not shared this cycle).
+
+        `data` overrides the coordinator snapshot — needed during a refresh,
+        where self.data is still the previous cycle's.
+        """
+        ready = (data if data is not None else self.data or {}).get("ready", [])
+        return [
+            s for s in shareable(ready, uuid) if (s, uuid) not in self._shared_marks
+        ]
+
+    def _share(self, shipments: list[str], uuid: str) -> None:
+        """Blocking share — runs in the executor."""
+        token = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
+        self._api.share_parcels(token, shipments, [uuid])
+
+    async def async_share_with(self, phone: str, data: dict | None = None) -> list[str]:
+        """Share every not-yet-shared ready parcel with the peer at `phone`.
+
+        Returns the shipment numbers actually sent. Raises InPostError on API
+        failure so the caller (button / switch) surfaces it to the user.
+        """
+        friends = (data if data is not None else self.data or {}).get("friends", [])
+        uuid = friend_uuid(friends, phone)
+        if not uuid:
+            raise InPostError(f"not paired with {phone} on this InPost account")
+        shipments = self.pending_for(uuid, data)
+        if not shipments:
+            return []
+        await self.hass.async_add_executor_job(self._share, shipments, uuid)
+        self._shared_marks.update((s, uuid) for s in shipments)
+        _LOGGER.info("shared %d parcel(s) with %s", len(shipments), phone)
+        return shipments
+
+    async def async_apply_auto_share(self, data: dict | None = None) -> None:
+        """Share newly ready parcels with every peer the user switched on.
+
+        Never raises: a failed share must not fail the refresh that triggered it,
+        and the next poll retries anyway (nothing was marked as sent).
+        """
+        for phone in sorted(self.auto_share):
+            try:
+                await self.async_share_with(phone, data)
+            except InPostError as err:
+                _LOGGER.warning("auto-share to %s failed: %s", phone, err)
+
     async def _async_update_data(self) -> dict:
         try:
-            return await self.hass.async_add_executor_job(self._fetch)
+            data = await self.hass.async_add_executor_job(self._fetch)
         except ReauthRequired as err:
             raise ConfigEntryAuthFailed("InPost refresh token expired") from err
         except NotModified:
@@ -80,8 +157,12 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             if self.data is not None:
                 return self.data
             return {
-                "ready": [], "in_transit": [], "archived": [],
+                "ready": [], "pickup_groups": [], "in_transit": [], "archived": [],
                 "counts": {"ready": 0, "in_transit": 0, "archived": 0},
             }
         except InPostError as err:
             raise UpdateFailed(str(err)) from err
+
+        if self.auto_share:
+            await self.async_apply_auto_share(data)
+        return data

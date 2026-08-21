@@ -49,10 +49,12 @@ class InPostReadySensor(InPostEntity, SensorEntity):
     def extra_state_attributes(self) -> dict:
         data = self.coordinator.data or {}
         counts = data.get("counts", {})
+        groups = data.get("pickup_groups", [])
         return {
             "do_odbioru_count": counts.get("ready", 0),
+            "grupy_count": len(groups),
             "w_drodze_count": counts.get("in_transit", 0),
-            "do_odbioru": ready_attrs(data.get("ready", [])),
+            "do_odbioru": ready_attrs(groups),
             "w_drodze": transit_attrs(data.get("in_transit", [])),
         }
 

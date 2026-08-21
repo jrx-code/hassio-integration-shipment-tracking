@@ -17,6 +17,12 @@ CONF_NOTIFY = "notify_ready"
 DEFAULT_SCAN_INTERVAL = timedelta(minutes=15)
 DEFAULT_ARCHIVE_LIMIT = 20
 
+# Fixed number of QR image slots per account. Each slot renders the k-th pickup
+# group (multiskrytka collapsed to one group), so this caps *distinct pickups*
+# shown simultaneously, not physical parcels. Slot 0 keeps the legacy unique_id
+# (`<phone>_qr`) for backward-compatible dashboards.
+QR_SLOTS = 6
+
 # Legacy SMS-auth backend (no captcha). The OAuth backend (account.inpost-group.com)
 # is gatekept by Cloudflare Turnstile, so this legacy endpoint is used instead.
 # Overridable if InPost starts gatekeeping the app version.

@@ -34,6 +34,28 @@ def peer_entries(hass: HomeAssistant, entry: ConfigEntry) -> list[ConfigEntry]:
     ]
 
 
+def entry_by_phone(hass: HomeAssistant, phone: str) -> ConfigEntry | None:
+    """The configured account owning `phone`, if this Home Assistant has one."""
+    for e in hass.config_entries.async_entries(DOMAIN):
+        if str(e.data.get(CONF_PHONE) or "") == str(phone):
+            return e
+    return None
+
+
+def configured_aliases(hass: HomeAssistant) -> dict[str, str]:
+    """Phone -> alias for every account configured here.
+
+    Lets a parcel shared by another household account be labelled with the name
+    used in Home Assistant, instead of whatever (often nothing) InPost stores.
+    """
+    out: dict[str, str] = {}
+    for e in hass.config_entries.async_entries(DOMAIN):
+        phone = e.data.get(CONF_PHONE)
+        if phone:
+            out[str(phone)] = e.data.get(CONF_ALIAS) or str(phone)
+    return out
+
+
 def share_unique_id(owner_phone: str, peer_phone: str) -> str:
     """Unique id of the sharing button on `owner_phone` aimed at `peer_phone`.
 
@@ -107,16 +129,23 @@ def shared_in(parcels: list[dict]) -> list[dict]:
     return [p for p in parcels or [] if p.get("ownership") in ("FRIEND", "OBSERVED")]
 
 
-def owner_label(parcel: dict, friends: list[dict]) -> str | None:
-    """Who shared this parcel with us — friend's name, else their phone number.
+def owner_label(
+    parcel: dict, friends: list[dict], aliases: dict[str, str] | None = None
+) -> str | None:
+    """Who shared this parcel with us — best name available, else the number.
 
-    The sharing account stays in the parcel's ``receiver``; matching that phone
-    against our own friend list turns it into the name shown in the app.
+    The sharing account stays in the parcel's ``receiver``. An alias from another
+    account configured here wins, because InPost's friend entry often carries no
+    name at all and the app then shows bare digits. Otherwise fall back to the
+    friend's name from InPost, and finally to the number itself.
     """
     phone = parcel.get("owner_phone")
     if not phone:
         return None
+    phone = str(phone)
+    if aliases and phone in aliases:
+        return aliases[phone]
     for f in friends or []:
-        if f.get("phone") and str(f["phone"]) == str(phone):
-            return f.get("name") or str(phone)
-    return str(phone)
+        if f.get("phone") and str(f["phone"]) == phone:
+            return f.get("name") or phone
+    return phone

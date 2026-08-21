@@ -90,7 +90,9 @@ def shared_out_attrs(parcels: list[dict]) -> list[dict]:
     ]
 
 
-def shared_in_attrs(parcels: list[dict], friends: list[dict]) -> list[dict]:
+def shared_in_attrs(
+    parcels: list[dict], friends: list[dict], aliases: dict[str, str] | None = None
+) -> list[dict]:
     """`otrzymane[]` — parcels somebody shared with us.
 
     ``podglad`` marks an OBSERVED share, where InPost withholds the pickup code.
@@ -100,7 +102,7 @@ def shared_in_attrs(parcels: list[dict], friends: list[dict]) -> list[dict]:
             "numer": p.get("shipment"),
             "nadawca": p.get("sender"),
             "status": status_pl(p.get("status")),
-            "od": owner_label(p, friends),
+            "od": owner_label(p, friends, aliases),
             "kod_odbioru": p.get("open_code"),
             "paczkomat": p.get("locker"),
             "podglad": p.get("ownership") == "OBSERVED",

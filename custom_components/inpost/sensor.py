@@ -141,7 +141,9 @@ class InPostSharedSensor(InPostEntity, SensorEntity):
         return {
             "udostepnione_count": len(incoming),
             "moje_udostepnione_count": len(outgoing),
-            "udostepnione": shared_in_attrs(incoming, self.coordinator.friends),
+            "udostepnione": shared_in_attrs(
+                incoming, self.coordinator.friends, self.coordinator.aliases
+            ),
             "moje_udostepnione": shared_out_attrs(outgoing),
         }
 

@@ -4,14 +4,14 @@ from __future__ import annotations
 import logging
 from datetime import timedelta
 
-from homeassistant.config_entries import ConfigEntry
+from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import InPostApi, InPostError, NotModified, ReauthRequired, categorize_parcels
 from .pickup import group_qr_data_url, pickup_groups
-from .share import friend_uuid, shareable
+from .share import configured_aliases, entry_by_phone, friend_uuid, shareable
 from .const import (
     CONF_ARCHIVE_LIMIT,
     CONF_REFRESH_TOKEN,
@@ -98,6 +98,11 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
     def friends(self) -> list[dict]:
         return (self.data or {}).get("friends", [])
 
+    @property
+    def aliases(self) -> dict[str, str]:
+        """Phone -> alias of every account configured in this Home Assistant."""
+        return configured_aliases(self.hass)
+
     def friend_uuid_for(self, phone: str) -> str | None:
         return friend_uuid(self.friends, phone)
 
@@ -139,7 +144,25 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         await self.hass.async_add_executor_job(self._share, shipments, uuid)
         self._shared_marks.update((s, uuid) for s in shipments)
         _LOGGER.info("shared %d parcel(s) with %s", len(shipments), phone)
+        await self._async_refresh_recipient(phone)
         return shipments
+
+    async def _async_refresh_recipient(self, phone: str) -> None:
+        """Pull the recipient's account now, if it is configured here too.
+
+        InPost only reveals a share on the next poll, so without this the parcels
+        would sit invisible on the receiving account for up to a full interval —
+        the user clicks and nothing happens for fifteen minutes. Only reached
+        after a share actually went out, so it cannot ping-pong: once there is
+        nothing left to share, no refresh is requested either.
+        """
+        entry = entry_by_phone(self.hass, phone)
+        if entry is None or entry.state is not ConfigEntryState.LOADED:
+            return
+        peer = getattr(entry, "runtime_data", None)
+        if peer is None or peer is self:
+            return
+        await peer.async_request_refresh()
 
     async def async_apply_auto_share(self, data: dict | None = None) -> None:
         """Share newly ready parcels with every peer the user switched on.

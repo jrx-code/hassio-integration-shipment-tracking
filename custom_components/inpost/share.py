@@ -34,6 +34,15 @@ def peer_entries(hass: HomeAssistant, entry: ConfigEntry) -> list[ConfigEntry]:
     ]
 
 
+def share_unique_id(owner_phone: str, peer_phone: str) -> str:
+    """Unique id of the sharing button on `owner_phone` aimed at `peer_phone`.
+
+    One definition, used both when creating the entity and when checking whether
+    an already-running account still lacks it.
+    """
+    return f"{owner_phone}_share_{peer_phone}"
+
+
 def peer_alias(entry: ConfigEntry) -> str:
     return entry.data.get(CONF_ALIAS) or entry.data.get(CONF_PHONE) or entry.entry_id
 

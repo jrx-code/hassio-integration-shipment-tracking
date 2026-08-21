@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/jrx-code/hassio-integration-inpost/issues",
   "requirements": ["segno==1.6.6"],
-  "version": "0.6.0"
+  "version": "0.7.0"
 }

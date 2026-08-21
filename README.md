@@ -77,8 +77,9 @@ Prerequisites and limits:
   parcels it refuses are skipped.
 - **Sharing is not undone here.** Turning the switch off stops new shares; it does
   not withdraw parcels already shared. Withdrawing is an app-side action.
-- Entities for a peer account are created when the entry is set up — after adding
-  a *new* account, reload the other one so it picks up the new peer.
+- Adding a further account needs no manual step: the new one gets its sharing
+  entities straight away, and every already-running account is reloaded once so
+  it gains the entities aimed at the newcomer.
 
 ## 🚀 Installation
 

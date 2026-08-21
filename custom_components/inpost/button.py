@@ -43,6 +43,10 @@ class InPostShareButton(InPostEntity, ButtonEntity):
     def __init__(self, coordinator, peer: ConfigEntry) -> None:
         self._peer_phone = str(peer.data[CONF_PHONE])
         self._peer_alias = peer_alias(peer)
+        # InPostEntity builds the unique id as "<own phone>_<key>", so this key
+        # yields exactly share_unique_id(own, peer) — the id __init__ looks for
+        # when deciding whether a running account still lacks entities for a
+        # newly added one. Keep the two in step.
         super().__init__(coordinator, f"share_{self._peer_phone}")
         self._attr_name = f"Udostępnij → {self._peer_alias}"
 

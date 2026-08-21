@@ -54,6 +54,12 @@ class InPostAutoShareSwitch(InPostEntity, SwitchEntity, RestoreEntity):
         if last is not None and last.state == STATE_ON:
             self._attr_is_on = True
             self.coordinator.auto_share.add(self._peer_phone)
+            # The coordinator's first refresh runs before platforms are set up,
+            # so it saw an empty auto-share set. Without this catch-up nothing
+            # would be mirrored until the next poll — a whole interval of silence
+            # after every restart. Scheduled, not awaited: startup must not block
+            # on an InPost round-trip.
+            self.hass.async_create_task(self.coordinator.async_apply_auto_share())
 
     async def async_will_remove_from_hass(self) -> None:
         self.coordinator.auto_share.discard(self._peer_phone)

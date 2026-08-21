@@ -53,6 +53,20 @@ def _shared_to(p: dict) -> list[dict]:
     ]
 
 
+def _dedupe(parcels: list[dict]) -> list[dict]:
+    """Drop repeated shipment numbers, keeping first position and last payload."""
+    order: list[str] = []
+    by_num: dict[str, dict] = {}
+    for p in parcels:
+        num = p.get("shipmentNumber")
+        if num is None:
+            continue
+        if num not in by_num:
+            order.append(num)
+        by_num[num] = p
+    return [by_num[n] for n in order]
+
+
 def _map_parcel(p: dict, state: str) -> dict:
     """Flatten one raw InPost parcel into the shape used by entities/attributes."""
     point = p.get("pickUpPoint") or {}
@@ -80,6 +94,10 @@ def _map_parcel(p: dict, state: str) -> dict:
         "ownership": p.get("ownershipStatus"),
         "shared_to": _shared_to(p),
         "can_share": bool(ops.get("canShareParcel")),
+        # Owner of a parcel shared *with* us: InPost keeps the original
+        # recipient in `receiver`, so this is how a FRIEND/OBSERVED parcel can be
+        # attributed back to the account that shared it.
+        "owner_phone": _phone_value((p.get("receiver") or {}).get("phoneNumber")),
     }
 
 
@@ -155,9 +173,18 @@ class InPostApi:
 
     # ---------------- data ----------------
     def get_parcels(self, auth_token: str) -> list[dict]:
-        """Fetch ALL parcels across pages. InPost paginates via ETag: send the
-        response ETag back as If-None-Match to get the next page. A single GET only
-        sees the oldest page and misses recent (incl. ready-to-pickup) parcels."""
+        """Fetch ALL parcels across pages, de-duplicated by shipment number.
+
+        InPost paginates via ETag: send the response ETag back as If-None-Match to
+        get the next page. A single GET only sees the oldest page and misses recent
+        (incl. ready-to-pickup) parcels.
+
+        Pages can OVERLAP — the same parcel was observed on two consecutive pages
+        of a live account (2026-08-21), which inflated the in-transit count by one
+        and would have sent a parcel twice in a single share request. Later pages
+        are newer, so a repeat replaces the earlier copy while keeping the parcel
+        at its first position.
+        """
         parcels: list[dict] = []
         etag: str | None = None
         seen: set[str] = set()
@@ -175,7 +202,7 @@ class InPostApi:
                 break
             seen.add(new_etag)
             etag = new_etag
-        return parcels
+        return _dedupe(parcels)
 
     # ---------------- app-to-app sharing ----------------
     def get_friends(self, auth_token: str) -> list[dict]:

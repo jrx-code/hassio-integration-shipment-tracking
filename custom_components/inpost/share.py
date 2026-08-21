@@ -53,11 +53,18 @@ def friend_uuid(friends: list[dict], phone: str) -> str | None:
 
 
 def shareable(parcels: list[dict], uuid: str) -> list[str]:
-    """Shipment numbers of ready parcels that still need sharing with `uuid`.
+    """Shipment numbers among `parcels` that still need sharing with `uuid`.
 
-    Skips parcels InPost refuses to share (``can_share`` comes from
-    ``operations.canShareParcel``) and ones already shared with that friend, so
-    running this on every poll is idempotent.
+    Callers pass every *active* parcel — ready and in transit alike. InPost allows
+    sharing well before a parcel reaches the locker (``operations.canShareParcel``
+    is already true in transit), and sharing early means the peer sees the whole
+    journey and receives the pickup code the moment it exists, instead of up to
+    one polling interval later.
+
+    Skips parcels InPost refuses to share and ones already shared with that
+    friend, so running this on every poll is idempotent. A parcel someone shared
+    *with us* is skipped too: InPost reports ``canShareParcel: false`` on the
+    recipient's copy, so it cannot be passed along a second time.
     """
     out: list[str] = []
     for p in parcels or []:
@@ -69,3 +76,28 @@ def shareable(parcels: list[dict], uuid: str) -> list[str]:
         if shipment:
             out.append(str(shipment))
     return out
+
+
+def shared_out(parcels: list[dict]) -> list[dict]:
+    """Active parcels of this account that are shared with somebody."""
+    return [p for p in parcels or [] if p.get("shared_to")]
+
+
+def shared_in(parcels: list[dict]) -> list[dict]:
+    """Active parcels somebody else shared with this account."""
+    return [p for p in parcels or [] if p.get("ownership") in ("FRIEND", "OBSERVED")]
+
+
+def owner_label(parcel: dict, friends: list[dict]) -> str | None:
+    """Who shared this parcel with us — friend's name, else their phone number.
+
+    The sharing account stays in the parcel's ``receiver``; matching that phone
+    against our own friend list turns it into the name shown in the app.
+    """
+    phone = parcel.get("owner_phone")
+    if not phone:
+        return None
+    for f in friends or []:
+        if f.get("phone") and str(f["phone"]) == str(phone):
+            return f.get("name") or str(phone)
+    return str(phone)

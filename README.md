@@ -35,6 +35,7 @@
 |---|---|---|
 | `sensor` · **Do odbioru** | number ready to pick up | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]` (nadawca, kod odbioru, paczkomat, adres, termin, `qr`), `w_drodze[]` |
 | `sensor` · **W drodze** | number in transit | — |
+| `sensor` · **Udostępnione** | number of active parcels shared with someone | `udostepnione[]` (numer, nadawca, status, `dla`, kod odbioru, paczkomat), `otrzymane[]` (same, plus `od` and `podglad`), `otrzymane_count` |
 | `sensor` · **Archiwum** | number archived | `archiwum[]` (latest N) |
 
 > The `qr` payload lets a Lovelace card render the compartment-opening QR client-side.
@@ -48,11 +49,16 @@ account:
 
 | Entity | What it does |
 |---|---|
-| `button` · **Udostępnij → \<alias\>** | shares every ready parcel not already shared with that account |
-| `switch` · **Auto-udostępnianie → \<alias\>** | keeps doing it for each newly ready parcel, on every poll |
+| `button` · **Udostępnij → \<alias\>** | shares every active parcel not already shared with that account |
+| `switch` · **Auto-udostępnianie → \<alias\>** | keeps doing it for each new parcel, on every poll |
+
+Sharing covers **every active parcel, in transit included** — InPost allows it
+long before the parcel reaches the locker, so the peer follows the whole journey
+and gets the pickup code the moment it exists.
 
 The recipient's account then lists those parcels normally — including pickup code
-and QR — so their sensors, QR image entities and cards need no extra wiring.
+and QR — so their sensors, QR image entities and cards need no extra wiring. What
+went out and what came in is summarised by the **Udostępnione** sensor.
 
 Prerequisites and limits:
 

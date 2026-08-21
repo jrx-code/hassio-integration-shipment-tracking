@@ -50,6 +50,7 @@
     "sensor": {
       "do_odbioru": { "name": "Do odbioru" },
       "w_drodze": { "name": "W drodze" },
+      "udostepnione": { "name": "Udostępnione" },
       "archiwum": { "name": "Archiwum" }
     }
   }

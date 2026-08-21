@@ -101,15 +101,21 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
     def friend_uuid_for(self, phone: str) -> str | None:
         return friend_uuid(self.friends, phone)
 
+    def active(self, data: dict | None = None) -> list[dict]:
+        """Ready + in-transit parcels, i.e. everything not yet closed."""
+        d = data if data is not None else self.data or {}
+        return list(d.get("ready", [])) + list(d.get("in_transit", []))
+
     def pending_for(self, uuid: str, data: dict | None = None) -> list[str]:
-        """Ready parcels not yet shared with `uuid` (and not shared this cycle).
+        """Active parcels not yet shared with `uuid` (and not shared this cycle).
 
         `data` overrides the coordinator snapshot — needed during a refresh,
         where self.data is still the previous cycle's.
         """
-        ready = (data if data is not None else self.data or {}).get("ready", [])
         return [
-            s for s in shareable(ready, uuid) if (s, uuid) not in self._shared_marks
+            s
+            for s in shareable(self.active(data), uuid)
+            if (s, uuid) not in self._shared_marks
         ]
 
     def _share(self, shipments: list[str], uuid: str) -> None:

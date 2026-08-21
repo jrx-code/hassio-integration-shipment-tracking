@@ -6,6 +6,7 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import CONF_ALIAS, CONF_PHONE, DOMAIN, status_pl
 from .coordinator import InPostCoordinator
+from .share import owner_label
 
 
 class InPostEntity(CoordinatorEntity[InPostCoordinator]):
@@ -69,6 +70,40 @@ def transit_attrs(parcels: list[dict]) -> list[dict]:
             "nadawca": p.get("sender"),
             "paczkomat": p.get("locker"),
             "status": status_pl(p.get("status")),
+        }
+        for p in parcels
+    ]
+
+
+def shared_out_attrs(parcels: list[dict]) -> list[dict]:
+    """`udostepnione[]` — our parcels handed to somebody else."""
+    return [
+        {
+            "numer": p.get("shipment"),
+            "nadawca": p.get("sender"),
+            "status": status_pl(p.get("status")),
+            "dla": [s.get("name") for s in p.get("shared_to") or []],
+            "kod_odbioru": p.get("open_code"),
+            "paczkomat": p.get("locker"),
+        }
+        for p in parcels
+    ]
+
+
+def shared_in_attrs(parcels: list[dict], friends: list[dict]) -> list[dict]:
+    """`otrzymane[]` — parcels somebody shared with us.
+
+    ``podglad`` marks an OBSERVED share, where InPost withholds the pickup code.
+    """
+    return [
+        {
+            "numer": p.get("shipment"),
+            "nadawca": p.get("sender"),
+            "status": status_pl(p.get("status")),
+            "od": owner_label(p, friends),
+            "kod_odbioru": p.get("open_code"),
+            "paczkomat": p.get("locker"),
+            "podglad": p.get("ownership") == "OBSERVED",
         }
         for p in parcels
     ]

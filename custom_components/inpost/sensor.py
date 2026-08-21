@@ -11,7 +11,15 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import InPostConfigEntry
-from .entity import InPostEntity, archive_attrs, ready_attrs, transit_attrs
+from .entity import (
+    InPostEntity,
+    archive_attrs,
+    ready_attrs,
+    shared_in_attrs,
+    shared_out_attrs,
+    transit_attrs,
+)
+from .share import shared_in, shared_out
 
 
 async def async_setup_entry(
@@ -24,6 +32,7 @@ async def async_setup_entry(
         [
             InPostReadySensor(coordinator),
             InPostCountSensor(coordinator, "w_drodze", "W drodze", "in_transit", "mdi:truck-delivery"),
+            InPostSharedSensor(coordinator),
             InPostArchiveSensor(coordinator),
         ]
     )
@@ -75,6 +84,41 @@ class InPostCountSensor(InPostEntity, SensorEntity):
     def native_value(self) -> int:
         data = self.coordinator.data or {}
         return data.get("counts", {}).get(self._bucket, 0)
+
+
+class InPostSharedSensor(InPostEntity, SensorEntity):
+    """App-to-app sharing, both directions, for one account.
+
+    State counts the *active* parcels this account has handed to somebody else —
+    the visible result of the sharing button / auto-share switch. Parcels shared
+    the other way (somebody handed them to us) are not part of the state, since
+    a single number cannot mean two things; they sit in `otrzymane[]` with their
+    own count.
+    """
+
+    _attr_name = "Udostępnione"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "szt."
+    _attr_icon = "mdi:share-variant"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "udostepnione")
+
+    @property
+    def native_value(self) -> int:
+        return len(shared_out(self.coordinator.active()))
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        active = self.coordinator.active()
+        out = shared_out(active)
+        incoming = shared_in(active)
+        return {
+            "udostepnione_count": len(out),
+            "otrzymane_count": len(incoming),
+            "udostepnione": shared_out_attrs(out),
+            "otrzymane": shared_in_attrs(incoming, self.coordinator.friends),
+        }
 
 
 class InPostArchiveSensor(InPostEntity, SensorEntity):

@@ -13,7 +13,9 @@
       "sms": {
         "title": "Enter the SMS code",
         "description": "Code sent to {phone}.",
-        "data": { "code": "6-digit code" }
+        "data": {
+          "code": "6-digit code"
+        }
       },
       "reauth_confirm": {
         "title": "Re-authenticate InPost",
@@ -45,12 +47,23 @@
   },
   "entity": {
     "binary_sensor": {
-      "do_odbioru": { "name": "Do odbioru" }
+      "do_odbioru": {
+        "name": "Do odbioru"
+      }
     },
     "sensor": {
-      "do_odbioru": { "name": "Do odbioru" },
-      "w_drodze": { "name": "W drodze" },
-      "archiwum": { "name": "Archiwum" }
+      "do_odbioru": {
+        "name": "Do odbioru"
+      },
+      "w_drodze": {
+        "name": "W drodze"
+      },
+      "udostepnione": {
+        "name": "Shared"
+      },
+      "archiwum": {
+        "name": "Archiwum"
+      }
     }
   }
 }

@@ -13,7 +13,9 @@
       "sms": {
         "title": "Wpisz kod SMS",
         "description": "Kod wysłany na {phone}.",
-        "data": { "code": "6-cyfrowy kod" }
+        "data": {
+          "code": "6-cyfrowy kod"
+        }
       },
       "reauth_confirm": {
         "title": "Ponowne logowanie InPost",
@@ -45,12 +47,23 @@
   },
   "entity": {
     "binary_sensor": {
-      "do_odbioru": { "name": "Do odbioru" }
+      "do_odbioru": {
+        "name": "Do odbioru"
+      }
     },
     "sensor": {
-      "do_odbioru": { "name": "Do odbioru" },
-      "w_drodze": { "name": "W drodze" },
-      "archiwum": { "name": "Archiwum" }
+      "do_odbioru": {
+        "name": "Do odbioru"
+      },
+      "w_drodze": {
+        "name": "W drodze"
+      },
+      "udostepnione": {
+        "name": "Udostępnione"
+      },
+      "archiwum": {
+        "name": "Archiwum"
+      }
     }
   }
 }

@@ -1,20 +1,33 @@
-"""App-to-app sharing: peer discovery and pick-what-to-share logic.
+"""App-to-app sharing: peer discovery and pick-what-to-share logic (InPost only).
 
 Pure functions here, no Home Assistant imports beyond config-entry typing, so the
 selection rules stay unit-testable. The InPost side is described in api.py;
 the short version: a share is a POST of (shipmentNumber, friendUuid) pairs, and
 it shows up on the recipient's account as a normal parcel with
 ownershipStatus=FRIEND carrying openCode/qrCode.
+
+Sharing is InPost-specific (DPD has no equivalent API). Every lookup below is
+scoped to CARRIER_INPOST entries, even though DOMAIN is shared with DPD under
+the multi-carrier umbrella — otherwise a DPD account with the same phone number
+(same person, two apps) would be picked up as an InPost peer/alias by mistake.
 """
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from .const import CONF_ALIAS, CONF_PHONE, DOMAIN
+from .const import CARRIER_INPOST, CONF_ALIAS, CONF_CARRIER, CONF_PHONE, DOMAIN
 
 if TYPE_CHECKING:  # keeps this module importable without the HA runtime (tests)
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
+
+
+def _inpost_entries(hass: HomeAssistant):
+    return [
+        e
+        for e in hass.config_entries.async_entries(DOMAIN)
+        if e.data.get(CONF_CARRIER, CARRIER_INPOST) == CARRIER_INPOST
+    ]
 
 
 def peer_entries(hass: HomeAssistant, entry: ConfigEntry) -> list[ConfigEntry]:
@@ -22,11 +35,12 @@ def peer_entries(hass: HomeAssistant, entry: ConfigEntry) -> list[ConfigEntry]:
 
     Read from the config-entry registry rather than from loaded runtime data, so
     the order in which entries set up does not decide whether the pair sees each
-    other. Ignored/disabled entries are not peers.
+    other. Ignored/disabled entries are not peers. DPD entries are excluded even
+    though they share DOMAIN — see module docstring.
     """
     return [
         e
-        for e in hass.config_entries.async_entries(DOMAIN)
+        for e in _inpost_entries(hass)
         if e.entry_id != entry.entry_id
         and e.disabled_by is None
         and e.source != "ignore"
@@ -35,21 +49,21 @@ def peer_entries(hass: HomeAssistant, entry: ConfigEntry) -> list[ConfigEntry]:
 
 
 def entry_by_phone(hass: HomeAssistant, phone: str) -> ConfigEntry | None:
-    """The configured account owning `phone`, if this Home Assistant has one."""
-    for e in hass.config_entries.async_entries(DOMAIN):
+    """The configured InPost account owning `phone`, if this HA has one."""
+    for e in _inpost_entries(hass):
         if str(e.data.get(CONF_PHONE) or "") == str(phone):
             return e
     return None
 
 
 def configured_aliases(hass: HomeAssistant) -> dict[str, str]:
-    """Phone -> alias for every account configured here.
+    """Phone -> alias for every InPost account configured here.
 
     Lets a parcel shared by another household account be labelled with the name
     used in Home Assistant, instead of whatever (often nothing) InPost stores.
     """
     out: dict[str, str] = {}
-    for e in hass.config_entries.async_entries(DOMAIN):
+    for e in _inpost_entries(hass):
         phone = e.data.get(CONF_PHONE)
         if phone:
             out[str(phone)] = e.data.get(CONF_ALIAS) or str(phone)
@@ -60,9 +74,20 @@ def share_unique_id(owner_phone: str, peer_phone: str) -> str:
     """Unique id of the sharing button on `owner_phone` aimed at `peer_phone`.
 
     One definition, used both when creating the entity and when checking whether
-    an already-running account still lacks it.
+    an already-running account still lacks it. Carrier-prefixed (like every
+    InPost unique_id under the shared multi-carrier domain) so it can never
+    collide with a DPD entity for the same phone number.
     """
-    return f"{owner_phone}_share_{peer_phone}"
+    return f"inpost_{owner_phone}_share_{peer_phone}"
+
+
+def auto_share_unique_id(owner_phone: str, peer_phone: str) -> str:
+    """Unique id of the auto-share switch on `owner_phone` aimed at `peer_phone`.
+
+    Mirrors share_unique_id() for the switch platform — see InPostAutoShareSwitch
+    in switch.py, whose key ("auto_share_<peer>") this must stay in step with.
+    """
+    return f"inpost_{owner_phone}_auto_share_{peer_phone}"
 
 
 def peer_alias(entry: ConfigEntry) -> str:

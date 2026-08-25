@@ -1,10 +1,12 @@
-"""Standing app-to-app sharing: a switch per configured peer account.
+"""Standing app-to-app sharing: a switch per configured InPost peer account.
 
 Turned on, every parcel that becomes ready on this account is shared with that
 peer automatically on the next poll, mirroring one account onto the other. Turned
 off, sharing only happens when the matching button is pressed. Sharing is not
 undone when the switch goes off: parcels already shared stay shared, since this
 client implements no unshare call (withdrawing a share is an app-side action).
+DPD accounts under the same multi-carrier domain never get one — sharing is
+InPost-only.
 
 State lives in the entity (RestoreEntity), deliberately not in entry options: the
 integration reloads itself on option updates, so a toggle would tear down the
@@ -19,7 +21,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.restore_state import RestoreEntity
 
-from . import InPostConfigEntry
+from . import ShipmentConfigEntry
 from .const import CONF_PHONE
 from .entity import InPostEntity
 from .share import peer_alias, peer_entries
@@ -27,7 +29,7 @@ from .share import peer_alias, peer_entries
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: InPostConfigEntry,
+    entry: ShipmentConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
@@ -37,7 +39,7 @@ async def async_setup_entry(
 
 
 class InPostAutoShareSwitch(InPostEntity, SwitchEntity, RestoreEntity):
-    """Keep every ready parcel of this account shared with one peer account."""
+    """Keep every ready parcel of this account shared with one peer InPost account."""
 
     _attr_icon = "mdi:share-all"
 

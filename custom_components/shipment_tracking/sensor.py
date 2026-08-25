@@ -3,6 +3,14 @@
 "Do odbioru" is the primary sensor: its state is the number of parcels ready for
 pickup and it carries the full parcel details (ready + in-transit) in attributes,
 so a Lovelace card / automation has everything on one entity.
+
+This module is the SENSOR platform for the whole shipment_tracking domain, not
+just InPost — HA forwards every carrier's config entry to whatever platforms
+PLATFORMS_BY_CARRIER lists, and both CARRIER_INPOST and CARRIER_DPD include
+Platform.SENSOR. async_setup_entry MUST dispatch on carrier: an un-dispatched
+version crashed here 2026-08-25 for DPD entries (InPostSharedSensor calls
+coordinator.active(), which only InPostCoordinator has — AttributeError on
+DpdCoordinator) before any DPD account had actually been onboarded to catch it.
 """
 from __future__ import annotations
 
@@ -10,7 +18,8 @@ from homeassistant.components.sensor import SensorEntity, SensorStateClass
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import InPostConfigEntry
+from . import ShipmentConfigEntry, carrier_of
+from .const import CARRIER_DPD
 from .entity import (
     InPostEntity,
     archive_attrs,
@@ -19,14 +28,18 @@ from .entity import (
     shared_out_attrs,
     transit_attrs,
 )
+from .sensor_dpd import async_setup_dpd_sensors
 from .share import own_only, shared_in, shared_out
 
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: InPostConfigEntry,
+    entry: ShipmentConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
+    if carrier_of(entry) == CARRIER_DPD:
+        await async_setup_dpd_sensors(hass, entry, async_add_entities)
+        return
     coordinator = entry.runtime_data
     async_add_entities(
         [

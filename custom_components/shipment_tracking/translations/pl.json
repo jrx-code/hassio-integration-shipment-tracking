@@ -2,6 +2,11 @@
   "config": {
     "step": {
       "user": {
+        "title": "Dodaj konto przewoźnika",
+        "description": "Wybierz przewoźnika do śledzenia.",
+        "data": { "carrier": "Przewoźnik" }
+      },
+      "inpost": {
         "title": "Dodaj konto InPost",
         "description": "Na ten numer zostanie wysłany kod SMS.",
         "data": {
@@ -13,19 +18,30 @@
       "sms": {
         "title": "Wpisz kod SMS",
         "description": "Kod wysłany na {phone}.",
+        "data": { "code": "6-cyfrowy kod" }
+      },
+      "dpd": {
+        "title": "Dodaj konto DPD",
+        "description": "Na ten numer zostanie wysłany kod SMS (DPD Mobile).",
         "data": {
-          "code": "6-cyfrowy kod"
+          "alias": "Nazwa (alias, opcjonalnie)",
+          "phone": "Numer telefonu (9 cyfr)"
         }
       },
+      "dpd_sms": {
+        "title": "Wpisz kod SMS z DPD",
+        "description": "Kod wysłany na {phone}.",
+        "data": { "code": "Kod" }
+      },
       "reauth_confirm": {
-        "title": "Ponowne logowanie InPost",
+        "title": "Ponowne logowanie",
         "description": "Sesja dla {phone} wygasła. Wyślij nowy kod SMS, aby zalogować się ponownie."
       }
     },
     "error": {
       "invalid_phone": "Numer telefonu musi mieć dokładnie 9 cyfr.",
-      "cannot_connect": "Nie udało się połączyć z InPost.",
-      "sms_rejected": "InPost nie przyjął tego numeru.",
+      "cannot_connect": "Nie udało się połączyć z przewoźnikiem.",
+      "sms_rejected": "Przewoźnik nie przyjął tego numeru.",
       "invalid_code": "Błędny kod lub weryfikacja się nie powiodła."
     },
     "abort": {
@@ -36,33 +52,12 @@
   "options": {
     "step": {
       "init": {
-        "title": "Opcje InPost",
+        "title": "Opcje",
         "data": {
           "scan_interval": "Interwał odpytywania (minuty)",
-          "archive_limit": "Liczba pokazywanych paczek archiwalnych (0-100)",
+          "archive_limit": "Liczba pokazywanych paczek dostarczonych/archiwalnych (0-100)",
           "notify_ready": "Powiadamiaj o gotowych do odbioru"
         }
-      }
-    }
-  },
-  "entity": {
-    "binary_sensor": {
-      "do_odbioru": {
-        "name": "Do odbioru"
-      }
-    },
-    "sensor": {
-      "do_odbioru": {
-        "name": "Do odbioru"
-      },
-      "w_drodze": {
-        "name": "W drodze"
-      },
-      "udostepnione": {
-        "name": "Udostępnione"
-      },
-      "archiwum": {
-        "name": "Archiwum"
       }
     }
   }

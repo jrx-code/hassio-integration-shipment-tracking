@@ -1,4 +1,4 @@
-"""DataUpdateCoordinator for the InPost integration."""
+"""DataUpdateCoordinator for the InPost carrier."""
 from __future__ import annotations
 
 import logging
@@ -43,7 +43,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         super().__init__(
             hass,
             _LOGGER,
-            name=f"{DOMAIN}_{entry.data.get('phone', entry.entry_id)}",
+            name=f"{DOMAIN}_inpost_{entry.data.get('phone', entry.entry_id)}",
             update_interval=update_interval,
         )
         self.entry = entry
@@ -100,7 +100,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
 
     @property
     def aliases(self) -> dict[str, str]:
-        """Phone -> alias of every account configured in this Home Assistant."""
+        """Phone -> alias of every InPost account configured in this Home Assistant."""
         return configured_aliases(self.hass)
 
     def friend_uuid_for(self, phone: str) -> str | None:

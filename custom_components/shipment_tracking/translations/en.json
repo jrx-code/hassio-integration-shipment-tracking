@@ -2,6 +2,11 @@
   "config": {
     "step": {
       "user": {
+        "title": "Add a carrier account",
+        "description": "Pick the carrier to track.",
+        "data": { "carrier": "Carrier" }
+      },
+      "inpost": {
         "title": "Add an InPost account",
         "description": "An SMS code will be sent to this number.",
         "data": {
@@ -15,15 +20,28 @@
         "description": "Code sent to {phone}.",
         "data": { "code": "6-digit code" }
       },
+      "dpd": {
+        "title": "Add a DPD account",
+        "description": "An SMS code will be sent to this number (DPD Mobile).",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "phone": "Phone number (9 digits)"
+        }
+      },
+      "dpd_sms": {
+        "title": "Enter the DPD SMS code",
+        "description": "Code sent to {phone}.",
+        "data": { "code": "Code" }
+      },
       "reauth_confirm": {
-        "title": "Re-authenticate InPost",
+        "title": "Re-authenticate",
         "description": "The session for {phone} expired. Send a new SMS code to sign in again."
       }
     },
     "error": {
       "invalid_phone": "The phone number must be exactly 9 digits.",
-      "cannot_connect": "Could not reach InPost.",
-      "sms_rejected": "InPost did not accept this number.",
+      "cannot_connect": "Could not reach the carrier.",
+      "sms_rejected": "The carrier did not accept this number.",
       "invalid_code": "Wrong code or verification failed."
     },
     "abort": {
@@ -34,24 +52,13 @@
   "options": {
     "step": {
       "init": {
-        "title": "InPost options",
+        "title": "Options",
         "data": {
           "scan_interval": "Polling interval (minutes)",
-          "archive_limit": "Archived parcels shown (0-100)",
+          "archive_limit": "Delivered/archived parcels shown (0-100)",
           "notify_ready": "Notify on ready-to-pickup"
         }
       }
-    }
-  },
-  "entity": {
-    "binary_sensor": {
-      "do_odbioru": { "name": "Do odbioru" }
-    },
-    "sensor": {
-      "do_odbioru": { "name": "Do odbioru" },
-      "w_drodze": { "name": "W drodze" },
-      "udostepnione": { "name": "Udostępnione" },
-      "archiwum": { "name": "Archiwum" }
     }
   }
 }

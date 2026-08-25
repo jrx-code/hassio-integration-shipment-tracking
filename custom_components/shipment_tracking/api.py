@@ -1,8 +1,9 @@
 """InPost mobile-API client (legacy SMS auth track).
 
-Reverse-engineered from the InPost mobile app and verified against the live API.
-stdlib only (urllib) — blocking, so callers must run it in an executor. Key
-gotchas: ETag pagination on /v4/parcels/tracked, legacy SMS backend (no captcha),
+Ported verbatim in behaviour from the reference poller (inpost_poller.py),
+which was reverse-engineered from IFOSSA/inpost-python and verified live. stdlib
+only (urllib) — blocking, so callers must run it in an executor. Key gotchas kept
+intact: ETag pagination on /v4/parcels/tracked, legacy SMS backend (no captcha),
 304 => NotModified.
 """
 from __future__ import annotations

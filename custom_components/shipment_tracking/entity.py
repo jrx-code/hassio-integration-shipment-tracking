@@ -1,4 +1,4 @@
-"""Shared entity base + parcel->attribute mapping for InPost."""
+"""Shared entity base + parcel->attribute mapping for the InPost carrier."""
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -10,7 +10,13 @@ from .share import owner_label
 
 
 class InPostEntity(CoordinatorEntity[InPostCoordinator]):
-    """Base entity: one HA device per InPost account (config entry)."""
+    """Base entity: one HA device per InPost account (config entry).
+
+    unique_id and device identifiers are prefixed with ``inpost_`` — DOMAIN is
+    shared with other carriers (DPD, ...) under the multi-carrier umbrella, and
+    the same phone number is commonly used for more than one carrier's account,
+    so the bare phone number alone would collide.
+    """
 
     _attr_has_entity_name = True
 
@@ -18,9 +24,9 @@ class InPostEntity(CoordinatorEntity[InPostCoordinator]):
         super().__init__(coordinator)
         phone = coordinator.entry.data[CONF_PHONE]
         alias = coordinator.entry.data.get(CONF_ALIAS, phone)
-        self._attr_unique_id = f"{phone}_{key}"
+        self._attr_unique_id = f"inpost_{phone}_{key}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, phone)},
+            identifiers={(DOMAIN, f"inpost_{phone}")},
             name=f"InPost — {alias}",
             manufacturer="InPost",
             model="Paczkomaty",

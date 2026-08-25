@@ -23,7 +23,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from . import InPostConfigEntry
+from . import ShipmentConfigEntry
 from .const import CONF_ALIAS, CONF_PHONE, DOMAIN, QR_SLOTS
 from .coordinator import InPostCoordinator
 from .pickup import group_qr_payload
@@ -31,7 +31,7 @@ from .pickup import group_qr_payload
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: InPostConfigEntry,
+    entry: ShipmentConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
@@ -55,13 +55,13 @@ class InPostQrImage(CoordinatorEntity[InPostCoordinator], ImageEntity):
         phone = coordinator.entry.data[CONF_PHONE]
         alias = coordinator.entry.data.get(CONF_ALIAS, phone)
         if slot == 0:
-            self._attr_unique_id = f"{phone}_qr"
+            self._attr_unique_id = f"inpost_{phone}_qr"
             self._attr_name = "QR do odbioru"
         else:
-            self._attr_unique_id = f"{phone}_qr_{slot + 1}"
+            self._attr_unique_id = f"inpost_{phone}_qr_{slot + 1}"
             self._attr_name = f"QR do odbioru #{slot + 1}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, phone)},
+            identifiers={(DOMAIN, f"inpost_{phone}")},
             name=f"InPost — {alias}",
             manufacturer="InPost",
             model="Paczkomaty",

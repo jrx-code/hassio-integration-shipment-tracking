@@ -1,6 +1,6 @@
 {
-  "domain": "inpost",
-  "name": "InPost Paczkomaty",
+  "domain": "shipment_tracking",
+  "name": "Śledzenie przesyłek",
   "codeowners": ["@jrx-code"],
   "config_flow": true,
   "documentation": "https://github.com/jrx-code/hassio-integration-inpost",
@@ -8,5 +8,5 @@
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/jrx-code/hassio-integration-inpost/issues",
   "requirements": ["segno==1.6.6"],
-  "version": "0.8.0"
+  "version": "2.0.0"
 }

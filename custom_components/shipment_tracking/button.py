@@ -1,9 +1,10 @@
-"""One-shot app-to-app sharing: a button per configured peer account.
+"""One-shot app-to-app sharing: a button per configured InPost peer account.
 
-With two accounts set up, each one's device gets an "Udostępnij → <other alias>"
-button. Pressing it shares every ready parcel that is not already shared with
-that peer; the peer's own InPost account (and therefore their sensors, QR image
-entities and cards) picks them up on its next poll.
+With two InPost accounts set up, each one's device gets an "Udostępnij → <other
+alias>" button. Pressing it shares every ready parcel that is not already shared
+with that peer; the peer's own InPost account (and therefore their sensors, QR
+image entities and cards) picks them up on its next poll. DPD accounts under the
+same multi-carrier domain never get one — sharing is InPost-only.
 """
 from __future__ import annotations
 
@@ -15,7 +16,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
-from . import InPostConfigEntry
+from . import ShipmentConfigEntry
 from .api import InPostError
 from .const import CONF_PHONE
 from .entity import InPostEntity
@@ -26,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(
     hass: HomeAssistant,
-    entry: InPostConfigEntry,
+    entry: ShipmentConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
@@ -36,16 +37,16 @@ async def async_setup_entry(
 
 
 class InPostShareButton(InPostEntity, ButtonEntity):
-    """Share all ready parcels of this account with one peer account."""
+    """Share all ready parcels of this account with one peer InPost account."""
 
     _attr_icon = "mdi:share-variant"
 
     def __init__(self, coordinator, peer: ConfigEntry) -> None:
         self._peer_phone = str(peer.data[CONF_PHONE])
         self._peer_alias = peer_alias(peer)
-        # InPostEntity builds the unique id as "<own phone>_<key>", so this key
-        # yields exactly share_unique_id(own, peer) — the id __init__ looks for
-        # when deciding whether a running account still lacks entities for a
+        # InPostEntity builds the unique id as "inpost_<own phone>_<key>", so this
+        # key yields exactly share_unique_id(own, peer) — the id __init__ looks
+        # for when deciding whether a running account still lacks entities for a
         # newly added one. Keep the two in step.
         super().__init__(coordinator, f"share_{self._peer_phone}")
         self._attr_name = f"Udostępnij → {self._peer_alias}"

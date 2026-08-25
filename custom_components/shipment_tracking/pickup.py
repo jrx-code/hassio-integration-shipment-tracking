@@ -78,7 +78,8 @@ def group_qr_data_url(group: dict) -> str | None:
     """Render a group's leader QR to a ``data:image/png;base64,...`` URL.
 
     For dashboard templates that embed the QR inline (``<img src="{{ p.qr_url }}">``
-    / ``![QR]({{ p.qr_url }})``). ~440 B per code, so a handful of groups stays under
+    / ``![QR]({{ p.qr_url }})``) — the native replacement for the old poller's
+    per-parcel ``qr_url``. ~440 B per code, so a handful of groups stays well under
     the recorder's per-state attribute limit.
 
     BLOCKING (segno render) — call from an executor, never the event loop. segno

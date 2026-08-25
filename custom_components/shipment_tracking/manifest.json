@@ -3,10 +3,10 @@
   "name": "Śledzenie przesyłek",
   "codeowners": ["@jrx-code"],
   "config_flow": true,
-  "documentation": "https://github.com/jrx-code/hassio-integration-inpost",
+  "documentation": "https://github.com/jrx-code/hassio-integration-shipment-tracking",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
-  "issue_tracker": "https://github.com/jrx-code/hassio-integration-inpost/issues",
+  "issue_tracker": "https://github.com/jrx-code/hassio-integration-shipment-tracking/issues",
   "requirements": ["segno==1.6.6"],
   "version": "2.4.0"
 }

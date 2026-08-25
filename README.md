@@ -4,15 +4,15 @@
 
 <br>
 
-[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jrx-code&repository=hassio-integration-inpost&category=integration)
+[![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jrx-code&repository=hassio-integration-shipment-tracking&category=integration)
 
 ![HACS Custom](https://img.shields.io/badge/HACS-Custom-FFCD00?style=flat-square)
 ![Home Assistant](https://img.shields.io/badge/Home_Assistant-2024.1+-18BCF2?style=flat-square&logo=homeassistant&logoColor=white)
 ![deps: segno](https://img.shields.io/badge/deps-segno-3776AB?style=flat-square&logo=python&logoColor=white)
-![License](https://img.shields.io/github/license/jrx-code/hassio-integration-inpost?style=flat-square&color=FFCD00)
+![License](https://img.shields.io/github/license/jrx-code/hassio-integration-shipment-tracking?style=flat-square&color=FFCD00)
 ![Made in Poland](https://img.shields.io/badge/made_in-🇵🇱_Poland-white?style=flat-square)
 
-**Track your parcels natively in Home Assistant — InPost and DPD today, more carriers planned — ready-to-pickup, in-transit and archive, as first-class entities.**
+**Track your parcels natively in Home Assistant — InPost, DPD, FedEx and Pocztex today, more carriers planned — ready-to-pickup, in-transit and archive, as first-class entities.**
 
 </div>
 
@@ -97,7 +97,7 @@ Prerequisites and limits:
 
 ### HACS (recommended)
 
-1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-inpost` as **Integration** — or just click the **Open in HACS** badge above.
+1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-shipment-tracking` as **Integration** — or just click the **Open in HACS** badge above.
 2. Install **Shipment Tracking (InPost + DPD)**, then restart Home Assistant.
 
 ### Manual

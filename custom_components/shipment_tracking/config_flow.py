@@ -23,11 +23,13 @@ from homeassistant.helpers.selector import (
 from .api import InPostApi, InPostError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
+from .api_pocztex import PocztexApi, PocztexError
 from .const import (
     CARRIER_DPD,
     CARRIER_FEDEX,
     CARRIER_INPOST,
     CARRIER_LABELS,
+    CARRIER_POCZTEX,
     CARRIERS,
     CONF_ACCOUNT_NUMBER,
     CONF_ALIAS,
@@ -80,6 +82,8 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_dpd()
             if self._carrier == CARRIER_FEDEX:
                 return await self.async_step_fedex()
+            if self._carrier == CARRIER_POCZTEX:
+                return await self.async_step_pocztex()
             return await self.async_step_inpost()
 
         return self.async_show_form(
@@ -297,6 +301,35 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    # ---------------------------- Pocztex ------------------------------
+    async def async_step_pocztex(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """No credential to enter — the SOAP service uses a fixed public
+        login (see const.py). Just an alias, validated by actually calling
+        the service once so a network/service problem surfaces at setup."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._alias = user_input[CONF_ALIAS].strip()
+            try:
+                await self.hass.async_add_executor_job(
+                    PocztexApi().track, "RR000000000PL"
+                )
+            except PocztexError as err:
+                _LOGGER.warning("Pocztex connectivity check failed: %s", err)
+                errors["base"] = "cannot_connect"
+            else:
+                await self.async_set_unique_id(f"pocztex_{self._alias.lower()}")
+                self._abort_if_unique_id_configured()
+                data = {CONF_CARRIER: CARRIER_POCZTEX, CONF_ALIAS: self._alias}
+                return self.async_create_entry(title=f"Pocztex — {self._alias}", data=data)
+
+        return self.async_show_form(
+            step_id="pocztex",
+            data_schema=vol.Schema({vol.Required(CONF_ALIAS): str}),
+            errors=errors,
+        )
+
     # ------------------------------ reauth ----------------------------
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
@@ -350,19 +383,23 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
 class ShipmentOptionsFlow(OptionsFlow):
     """Scan interval, archive/delivered cap, notify toggle.
 
-    FedEx entries additionally carry the tracked-numbers list here (comma
-    separated in the form, split/joined on the way in/out) — it's the closest
-    FedEx has to "adding a parcel", since there's no account to auto-discover
-    from, and options don't need a reauth like credentials would.
+    FedEx and Pocztex entries additionally carry the tracked-numbers list
+    here (comma separated in the form, split/joined on the way in/out) —
+    it's the closest either has to "adding a parcel", since neither has an
+    account to auto-discover from, and options don't need a reauth like
+    credentials would.
     """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        is_fedex = self.config_entry.data.get(CONF_CARRIER) == CARRIER_FEDEX
+        needs_numbers = self.config_entry.data.get(CONF_CARRIER) in (
+            CARRIER_FEDEX,
+            CARRIER_POCZTEX,
+        )
         if user_input is not None:
             data = dict(user_input)
-            if is_fedex:
+            if needs_numbers:
                 raw = data.pop("tracking_numbers_csv", "")
                 data[CONF_TRACKING_NUMBERS] = [
                     n.strip() for n in raw.split(",") if n.strip()
@@ -382,7 +419,7 @@ class ShipmentOptionsFlow(OptionsFlow):
                 CONF_NOTIFY, default=opts.get(CONF_NOTIFY, True)
             ): bool,
         }
-        if is_fedex:
+        if needs_numbers:
             schema[vol.Optional(
                 "tracking_numbers_csv",
                 default=", ".join(opts.get(CONF_TRACKING_NUMBERS, [])),

@@ -1,9 +1,17 @@
 """Constants for the Shipment Tracking (Śledzenie przesyłek) integration.
 
 Multi-carrier: InPost (lockers, QR, multiskrytka), DPD (to-address, status
-history) and FedEx (official REST API, track-by-number). Each config entry
-carries a ``carrier`` discriminator; entries created before multi-carrier
-support default to InPost.
+history), FedEx (official REST API, track-by-number) and Pocztex (official
+SOAP API, track-by-number). Each config entry carries a ``carrier``
+discriminator; entries created before multi-carrier support default to
+InPost.
+
+v2.3.0 (2026-08-25): Pocztex added, same session as FedEx. Poczta Polska's
+own "Pocztex Mobile" app needs email/password + ToS registration (heavier
+than InPost/DPD's SMS flow) for its phone-based auto-discovery, so — like
+FedEx — this uses the official track-by-number SOAP web service instead
+(WS-Security with a fixed public credential, not per-account). GLS is the
+only originally-planned carrier still untouched.
 
 v2.2.0 (2026-08-25): FedEx added — architecturally the odd one out. InPost/DPD
 are reverse-engineered consumer apps (phone+SMS, auto-discover "my parcels").
@@ -55,11 +63,13 @@ CONF_CARRIER = "carrier"
 CARRIER_INPOST = "inpost"
 CARRIER_DPD = "dpd"
 CARRIER_FEDEX = "fedex"
-CARRIERS = [CARRIER_INPOST, CARRIER_DPD, CARRIER_FEDEX]
+CARRIER_POCZTEX = "pocztex"
+CARRIERS = [CARRIER_INPOST, CARRIER_DPD, CARRIER_FEDEX, CARRIER_POCZTEX]
 CARRIER_LABELS = {
     CARRIER_INPOST: "InPost Paczkomaty",
     CARRIER_DPD: "DPD",
     CARRIER_FEDEX: "FedEx",
+    CARRIER_POCZTEX: "Pocztex",
 }
 
 # ---- Common config-entry data keys ----
@@ -284,3 +294,28 @@ def fedex_status_pl(derived_code: str, status_text: str = "") -> str:
 
 def fedex_is_active(derived_code: str, status_text: str = "") -> bool:
     return fedex_canonical(derived_code, status_text) not in FEDEX_TERMINAL
+
+
+# =========================== Pocztex ===========================
+# Official Poczta Polska S.A. SOAP tracking web service — track-by-number,
+# like FedEx, not a reverse-engineered consumer app (Pocztex Mobile itself
+# needs email/password + ToS registration for the phone-auto-discovery
+# feature, a much heavier gate than InPost/DPD's SMS flow, so this carrier
+# skips it — same tradeoff as FedEx). Auth is WS-Security UsernameToken with
+# a fixed, publicly documented pair (username "sledzeniepp", password "PPSA")
+# used by third-party integrators for years — not a per-account secret, so
+# it's a plain constant here rather than something fetched from config.
+#
+# Verified live 2026-08-25: WS-Security auth accepted, the exact request/
+# response XML shape (namespace-qualified <numer> under the sprawdzPrzesylkePl
+# element), and the "not found" response (status=-1, danePrzesylki nil) for
+# both a UPU-format test number (RR123456785PL) and a Pocztex-style 20-digit
+# numeric one (per third-party docs: Pocztex parcel numbers are 20 digits
+# starting with "00" — NOT verified against this service with a real
+# Pocztex waybill, only structurally accepted). The batch operation
+# (sprawdzPrzesylkiPl) returned only 1 result for 2 submitted numbers in two
+# separate tests — unexplained, not used here; per-number calls only.
+# Real found-parcel response shape (a non-nil danePrzesylki) not yet seen.
+POCZTEX_SOAP_URL = "https://tt.poczta-polska.pl/Sledzenie/services/Sledzenie"
+POCZTEX_WS_USER = "sledzeniepp"
+POCZTEX_WS_PASSWORD = "PPSA"

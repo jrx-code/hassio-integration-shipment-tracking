@@ -19,7 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ShipmentConfigEntry, carrier_of
-from .const import CARRIER_DPD, CARRIER_FEDEX
+from .const import CARRIER_DPD, CARRIER_FEDEX, CARRIER_POCZTEX
 from .entity import (
     InPostEntity,
     archive_attrs,
@@ -30,6 +30,7 @@ from .entity import (
 )
 from .sensor_dpd import async_setup_dpd_sensors
 from .sensor_fedex import async_setup_fedex_sensors
+from .sensor_pocztex import async_setup_pocztex_sensors
 from .share import own_only, shared_in, shared_out
 
 
@@ -43,6 +44,9 @@ async def async_setup_entry(
         return
     if carrier_of(entry) == CARRIER_FEDEX:
         await async_setup_fedex_sensors(hass, entry, async_add_entities)
+        return
+    if carrier_of(entry) == CARRIER_POCZTEX:
+        await async_setup_pocztex_sensors(hass, entry, async_add_entities)
         return
     coordinator = entry.runtime_data
     async_add_entities(

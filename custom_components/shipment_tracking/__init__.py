@@ -12,6 +12,7 @@ from .const import (
     CARRIER_DPD,
     CARRIER_FEDEX,
     CARRIER_INPOST,
+    CARRIER_POCZTEX,
     CONF_CARRIER,
     CONF_PHONE,
     DOMAIN,
@@ -19,6 +20,7 @@ from .const import (
 from .coordinator import InPostCoordinator
 from .coordinator_dpd import DpdCoordinator
 from .coordinator_fedex import FedexCoordinator
+from .coordinator_pocztex import PocztexCoordinator
 from .share import auto_share_unique_id, peer_entries, share_unique_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,11 +28,12 @@ _LOGGER = logging.getLogger(__name__)
 type ShipmentConfigEntry = ConfigEntry
 
 # Platforms per carrier — only InPost exposes QR images and app-to-app sharing
-# (button/switch); DPD and FedEx have neither.
+# (button/switch); DPD, FedEx and Pocztex have neither.
 PLATFORMS_BY_CARRIER: dict[str, list[Platform]] = {
     CARRIER_INPOST: [Platform.SENSOR, Platform.IMAGE, Platform.BUTTON, Platform.SWITCH],
     CARRIER_DPD: [Platform.SENSOR],
     CARRIER_FEDEX: [Platform.SENSOR],
+    CARRIER_POCZTEX: [Platform.SENSOR],
 }
 
 
@@ -42,11 +45,13 @@ def carrier_of(entry: ConfigEntry) -> str:
 async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> bool:
     """Set up one carrier account from a config entry."""
     carrier = carrier_of(entry)
-    coordinator: InPostCoordinator | DpdCoordinator | FedexCoordinator
+    coordinator: InPostCoordinator | DpdCoordinator | FedexCoordinator | PocztexCoordinator
     if carrier == CARRIER_DPD:
         coordinator = DpdCoordinator(hass, entry)
     elif carrier == CARRIER_FEDEX:
         coordinator = FedexCoordinator(hass, entry)
+    elif carrier == CARRIER_POCZTEX:
+        coordinator = PocztexCoordinator(hass, entry)
     else:
         coordinator = InPostCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()

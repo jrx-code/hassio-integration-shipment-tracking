@@ -39,6 +39,24 @@ def _row(p: dict) -> dict:
     }
 
 
+def _active_row(p: dict) -> dict:
+    """Like _row(), plus the detail-endpoint fields (GPS/courier/mps) that the
+    coordinator only fetches for active parcels."""
+    row = _row(p)
+    row.update(
+        {
+            "adres_nadawcy": p.get("sender_address"),
+            "gps_doreczenia": p.get("delivery_gps"),
+            "kurier": p.get("courier_name"),
+            "telefon_kuriera": p.get("courier_phone"),
+        }
+    )
+    if p.get("mps_count"):
+        row["czesc_przesylki"] = f"{p.get('mps_part')}/{p.get('mps_count')}"
+        row["pozostale_paczki"] = p.get("mps_siblings")
+    return row
+
+
 class DpdActiveSensor(CoordinatorEntity[DpdCoordinator], SensorEntity):
     """Active DPD parcels for one account, with parcel lists in attributes."""
 
@@ -74,6 +92,6 @@ class DpdActiveSensor(CoordinatorEntity[DpdCoordinator], SensorEntity):
         return {
             "active_count": counts.get("active", 0),
             "delivered_count": counts.get("delivered", 0),
-            "w_drodze": [_row(p) for p in data.get("active", [])],
+            "w_drodze": [_active_row(p) for p in data.get("active", [])],
             "dostarczone": [_row(p) for p in data.get("delivered", [])[:limit]],
         }

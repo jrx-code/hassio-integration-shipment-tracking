@@ -160,3 +160,23 @@ class DpdApi:
         if st in (401, 403):
             raise DpdAuthError(f"parcels unauthorized: HTTP {st}")
         raise DpdError(f"get_parcels failed: HTTP {st} {d}")
+
+    def get_parcel_detail(self, access_token: str, waybill: str) -> dict:
+        """Single-parcel detail — richer than the list: sender address, GPS of
+        the delivery point, courier contact, and (for multi-parcel shipments)
+        the actual sibling waybills under ``mps.parcels`` (empty on the list
+        endpoint, which only carries the count)."""
+        st, d = self._req(
+            "GET",
+            f"{DPD_API_URL}/mdupackageservices/api/v1/packages/{waybill}",
+            token=access_token,
+            extra_headers={
+                "X-Mobile-Platform": DPD_MOBILE_PLATFORM,
+                "X-Mobile-Version": DPD_MOBILE_VERSION,
+            },
+        )
+        if st == 200:
+            return d
+        if st in (401, 403):
+            raise DpdAuthError(f"parcel detail unauthorized: HTTP {st}")
+        raise DpdError(f"get_parcel_detail failed: HTTP {st} {d}")

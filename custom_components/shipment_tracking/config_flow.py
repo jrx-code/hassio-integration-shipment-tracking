@@ -22,19 +22,25 @@ from homeassistant.helpers.selector import (
 
 from .api import InPostApi, InPostError
 from .api_dpd import DpdApi, DpdError, normalize_phone
+from .api_fedex import FedexApi, FedexError
 from .const import (
     CARRIER_DPD,
+    CARRIER_FEDEX,
     CARRIER_INPOST,
     CARRIER_LABELS,
     CARRIERS,
+    CONF_ACCOUNT_NUMBER,
     CONF_ALIAS,
     CONF_ARCHIVE_LIMIT,
     CONF_CARRIER,
+    CONF_CLIENT_ID,
+    CONF_CLIENT_SECRET,
     CONF_NOTIFY,
     CONF_PHONE,
     CONF_PREFIX,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
+    CONF_TRACKING_NUMBERS,
     DEFAULT_ARCHIVE_LIMIT,
     DEFAULT_BASE,
     DEFAULT_UA,
@@ -72,6 +78,8 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             self._carrier = user_input[CONF_CARRIER]
             if self._carrier == CARRIER_DPD:
                 return await self.async_step_dpd()
+            if self._carrier == CARRIER_FEDEX:
+                return await self.async_step_fedex()
             return await self.async_step_inpost()
 
         return self.async_show_form(
@@ -239,6 +247,56 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             description_placeholders={"phone": f"+48 {self._phone}"},
         )
 
+    # ----------------------------- FedEx ------------------------------
+    async def async_step_fedex(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Client ID/Secret only — official OAuth2 API, no SMS step.
+
+        Validated by actually minting an access token, not just format
+        checks: a typo'd secret should fail here, not silently at first poll.
+        """
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._alias = user_input[CONF_ALIAS].strip()
+            client_id = user_input[CONF_CLIENT_ID].strip()
+            client_secret = user_input[CONF_CLIENT_SECRET].strip()
+            account_number = user_input.get(CONF_ACCOUNT_NUMBER, "").strip()
+            try:
+                await self.hass.async_add_executor_job(
+                    FedexApi(client_id, client_secret).get_access_token
+                )
+            except FedexError as err:
+                _LOGGER.warning("FedEx OAuth validation failed: %s", err)
+                errors["base"] = "invalid_auth"
+            else:
+                await self.async_set_unique_id(f"fedex_{client_id}")
+                self._abort_if_unique_id_configured()
+                data = {
+                    CONF_CARRIER: CARRIER_FEDEX,
+                    CONF_ALIAS: self._alias or "FedEx",
+                    CONF_CLIENT_ID: client_id,
+                    CONF_CLIENT_SECRET: client_secret,
+                    CONF_ACCOUNT_NUMBER: account_number,
+                }
+                return self.async_create_entry(
+                    title=f"FedEx — {self._alias or account_number or client_id[:8]}",
+                    data=data,
+                )
+
+        return self.async_show_form(
+            step_id="fedex",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ALIAS): str,
+                    vol.Required(CONF_CLIENT_ID): str,
+                    vol.Required(CONF_CLIENT_SECRET): str,
+                    vol.Optional(CONF_ACCOUNT_NUMBER, default=""): str,
+                }
+            ),
+            errors=errors,
+        )
+
     # ------------------------------ reauth ----------------------------
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
@@ -290,29 +348,43 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class ShipmentOptionsFlow(OptionsFlow):
-    """Scan interval, archive/delivered cap, notify toggle."""
+    """Scan interval, archive/delivered cap, notify toggle.
+
+    FedEx entries additionally carry the tracked-numbers list here (comma
+    separated in the form, split/joined on the way in/out) — it's the closest
+    FedEx has to "adding a parcel", since there's no account to auto-discover
+    from, and options don't need a reauth like credentials would.
+    """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
+        is_fedex = self.config_entry.data.get(CONF_CARRIER) == CARRIER_FEDEX
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            data = dict(user_input)
+            if is_fedex:
+                raw = data.pop("tracking_numbers_csv", "")
+                data[CONF_TRACKING_NUMBERS] = [
+                    n.strip() for n in raw.split(",") if n.strip()
+                ]
+            return self.async_create_entry(title="", data=data)
 
         opts = self.config_entry.options
-        return self.async_show_form(
-            step_id="init",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(
-                        CONF_SCAN_INTERVAL, default=opts.get(CONF_SCAN_INTERVAL, 15)
-                    ): vol.All(vol.Coerce(int), vol.Range(min=5, max=180)),
-                    vol.Optional(
-                        CONF_ARCHIVE_LIMIT,
-                        default=opts.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT),
-                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                    vol.Optional(
-                        CONF_NOTIFY, default=opts.get(CONF_NOTIFY, True)
-                    ): bool,
-                }
-            ),
-        )
+        schema: dict[Any, Any] = {
+            vol.Optional(
+                CONF_SCAN_INTERVAL, default=opts.get(CONF_SCAN_INTERVAL, 15)
+            ): vol.All(vol.Coerce(int), vol.Range(min=5, max=180)),
+            vol.Optional(
+                CONF_ARCHIVE_LIMIT,
+                default=opts.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            vol.Optional(
+                CONF_NOTIFY, default=opts.get(CONF_NOTIFY, True)
+            ): bool,
+        }
+        if is_fedex:
+            schema[vol.Optional(
+                "tracking_numbers_csv",
+                default=", ".join(opts.get(CONF_TRACKING_NUMBERS, [])),
+            )] = str
+        return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))

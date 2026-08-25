@@ -1,8 +1,22 @@
 """Constants for the Shipment Tracking (Śledzenie przesyłek) integration.
 
-Multi-carrier: InPost (lockers, QR, multiskrytka) and DPD (to-address, status
-history). Each config entry carries a ``carrier`` discriminator; entries created
-before multi-carrier support default to InPost.
+Multi-carrier: InPost (lockers, QR, multiskrytka), DPD (to-address, status
+history) and FedEx (official REST API, track-by-number). Each config entry
+carries a ``carrier`` discriminator; entries created before multi-carrier
+support default to InPost.
+
+v2.2.0 (2026-08-25): FedEx added — architecturally the odd one out. InPost/DPD
+are reverse-engineered consumer apps (phone+SMS, auto-discover "my parcels").
+FedEx is developer.fedex.com's documented Track API (OAuth2 client_credentials,
+one Client ID/Secret per FedEx developer org project) with no account-level
+auto-discovery at all — recipients aren't tied to a phone number the way
+InPost/DPD's consumer apps work, so the config entry holds a manually-maintained
+tracking-number list (options, not auth data) instead. DHL Parcel Polska and
+Allegro One were also scouted the same day: DHL got a full spike (see
+HANDOVER-20260825-dhl-parcel-api-research.md) but hit a 24h account lockout
+before a working handshake; Allegro turned out track-by-number only, same
+shape as FedEx, deferred (no test waybill on hand). GLS + Pocztex still
+untouched.
 
 v2.0.0 (2026-08-25): version bumped from 1.x to signal a real scope change, not
 an incremental fix — this stopped being "InPost with a DPD side-quest" the day
@@ -40,14 +54,27 @@ DOMAIN = "shipment_tracking"
 CONF_CARRIER = "carrier"
 CARRIER_INPOST = "inpost"
 CARRIER_DPD = "dpd"
-CARRIERS = [CARRIER_INPOST, CARRIER_DPD]
-CARRIER_LABELS = {CARRIER_INPOST: "InPost Paczkomaty", CARRIER_DPD: "DPD"}
+CARRIER_FEDEX = "fedex"
+CARRIERS = [CARRIER_INPOST, CARRIER_DPD, CARRIER_FEDEX]
+CARRIER_LABELS = {
+    CARRIER_INPOST: "InPost Paczkomaty",
+    CARRIER_DPD: "DPD",
+    CARRIER_FEDEX: "FedEx",
+}
 
 # ---- Common config-entry data keys ----
 CONF_ALIAS = "alias"
 CONF_PREFIX = "prefix"
 CONF_PHONE = "phone"
 CONF_REFRESH_TOKEN = "refresh_token"
+
+# ---- FedEx config-entry data keys ----
+CONF_CLIENT_ID = "client_id"
+CONF_CLIENT_SECRET = "client_secret"
+CONF_ACCOUNT_NUMBER = "account_number"
+
+# ---- FedEx options ----
+CONF_TRACKING_NUMBERS = "tracking_numbers"
 
 # ---- Options ----
 CONF_SCAN_INTERVAL = "scan_interval"
@@ -178,3 +205,82 @@ def dpd_status_pl(raw: str) -> str:
 def dpd_is_active(raw: str) -> bool:
     """A DPD parcel is active until it is delivered / returned / cancelled."""
     return dpd_canonical(raw) not in DPD_TERMINAL
+
+
+# ============================ FedEx ============================
+# Official FedEx REST API (developer.fedex.com) — OAuth2 client_credentials,
+# not a reverse-engineered consumer app like InPost/DPD. No phone/SMS,
+# no auto-discovery of "my parcels": FedEx's Track API is track-by-number
+# only, so this carrier's config entry holds a manually-maintained list of
+# tracking numbers (CONF_TRACKING_NUMBERS in options) instead of an account.
+# Verified live 2026-08-25 against the sandbox environment (mock waybill
+# 449044304137821, a FedEx-published test number — "VIRTUAL.RESPONSE" alert
+# confirms it's their canned sandbox reply, not a real parcel) and against a
+# real production OAuth token (JWT apimode:"Live"). Track-by-number itself
+# not yet exercised against a real production waybill.
+FEDEX_OAUTH_URL = "https://apis.fedex.com/oauth/token"
+FEDEX_TRACK_URL = "https://apis.fedex.com/track/v1/trackingnumbers"
+# Up to 30 tracking numbers per request — documented FedEx Track API limit.
+FEDEX_MAX_NUMBERS_PER_REQUEST = 30
+
+# Canonical status buckets -> Polish labels.
+FEDEX_CANONICAL_PL = {
+    "created": "Utworzona",
+    "in_transport": "W transporcie",
+    "handed_out_for_delivery": "W doręczeniu",
+    "delivered": "Dostarczona",
+    "exception": "Problem",
+    "cancelled": "Anulowana",
+    "unknown": "—",
+}
+
+FEDEX_TERMINAL = {"delivered", "cancelled"}
+
+# derivedCode -> canonical bucket. Only "IN" verified live this session
+# (sandbox mock response). The rest are FedEx's long-standing, widely
+# documented derived-status codes (used across third-party FedEx tracking
+# integrations for years) but NOT individually verified live — treat as
+# well-attested, not confirmed. Unknown codes fall back to a keyword scan
+# over statusByLocale/description, then "unknown", same pattern as DPD.
+_FEDEX_DERIVED_EXACT = {
+    "IN": "created",              # Initiated — verified live 2026-08-25
+    "PU": "in_transport",         # Picked up
+    "IT": "in_transport",         # In transit
+    "OD": "handed_out_for_delivery",  # Out for delivery
+    "DL": "delivered",            # Delivered
+    "DE": "exception",            # Delivery exception
+    "CA": "cancelled",            # Shipment canceled
+}
+
+
+def fedex_canonical(derived_code: str, status_text: str = "") -> str:
+    """Map a FedEx ``latestStatusDetail.derivedCode`` (+ fallback text) to a
+    canonical bucket. Reimplemented from the documented derived-code table;
+    unknown codes fall back to a keyword scan of the status text."""
+    code = (derived_code or "").strip().upper()
+    if code in _FEDEX_DERIVED_EXACT:
+        return _FEDEX_DERIVED_EXACT[code]
+    s = (status_text or "").strip().lower()
+    if not s:
+        return "unknown"
+    if "deliver" in s and "exception" not in s and "out for" not in s:
+        return "delivered"
+    if "out for delivery" in s:
+        return "handed_out_for_delivery"
+    if any(x in s for x in ("cancel",)):
+        return "cancelled"
+    if any(x in s for x in ("exception", "delay", "problem", "fail")):
+        return "exception"
+    if any(x in s for x in ("transit", "picked up", "departed", "arrived", "shipment information")):
+        return "in_transport"
+    if any(x in s for x in ("initiated", "created", "label")):
+        return "created"
+    return "unknown"
+
+
+def fedex_status_pl(derived_code: str, status_text: str = "") -> str:
+    return FEDEX_CANONICAL_PL.get(fedex_canonical(derived_code, status_text), status_text or "—")
+
+
+def fedex_is_active(derived_code: str, status_text: str = "") -> bool:
+    return fedex_canonical(derived_code, status_text) not in FEDEX_TERMINAL

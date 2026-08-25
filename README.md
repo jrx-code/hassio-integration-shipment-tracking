@@ -98,7 +98,7 @@ Prerequisites and limits:
 ### HACS (recommended)
 
 1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-shipment-tracking` as **Integration** — or just click the **Open in HACS** badge above.
-2. Install **Shipment Tracking (InPost + DPD)**, then restart Home Assistant.
+2. Install **Shipment Tracking (InPost, DPD, FedEx, Pocztex)**, then restart Home Assistant.
 
 ### Manual
 
@@ -137,7 +137,7 @@ archived/delivered-parcels cap, ready-to-pickup notification flag (InPost).
 
 ## ⚠️ Disclaimer
 
-Unofficial integration, not affiliated with or endorsed by InPost or DPD. It talks to each carrier's mobile API on your behalf using your own account; use it at your own discretion. InPost and DPD names and logos belong to their respective owners.
+Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, or Poczta Polska/Pocztex. For InPost/DPD/Pocztex it talks to each carrier's consumer mobile API on your behalf using your own account; FedEx uses their official, documented developer API instead. Use it at your own discretion. All carrier names and logos belong to their respective owners.
 
 ## 📄 License
 

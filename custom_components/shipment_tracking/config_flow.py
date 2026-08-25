@@ -1,4 +1,4 @@
-"""Config & options flow for Śledzenie przesyłek (InPost + DPD, SMS auth)."""
+"""Config & options flow for Śledzenie przesyłek (InPost, DPD, FedEx, Pocztex)."""
 from __future__ import annotations
 
 import logging

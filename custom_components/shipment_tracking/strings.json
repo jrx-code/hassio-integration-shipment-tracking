@@ -48,9 +48,13 @@
         }
       },
       "pocztex": {
-        "title": "Add a Pocztex tracker",
-        "description": "Official Poczta Polska tracking web service — no login needed. Add tracking numbers afterwards in Options.",
-        "data": { "alias": "Name (alias)" }
+        "title": "Add a Pocztex account",
+        "description": "Pocztex Mobile login — email and password of an existing account (registration is app-only, this can't create one). Auto-discovers every parcel tied to the account, like DPD.",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "email": "E-mail",
+          "password": "Password"
+        }
       }
     },
     "error": {
@@ -73,7 +77,7 @@
           "scan_interval": "Polling interval (minutes)",
           "archive_limit": "Delivered/archived parcels shown (0-100)",
           "notify_ready": "Notify on ready-to-pickup",
-          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx/Pocztex only)"
+          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx only)"
         }
       }
     }

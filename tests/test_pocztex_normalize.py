@@ -1,11 +1,10 @@
 """Unit tests for PocztexCoordinator.normalize_parcel() — pure, no HA.
 
-The not-found dict shape matches the real "not found" response captured live
-2026-08-25 (PocztexApi.track() against tt.poczta-polska.pl with a made-up
-number: found=False, status_code="-1"). The found-case dict is NOT from a
-real response — no live parcel was available to test against this session —
-it's built to match the WSDL-documented DanePrzesylki/Zdarzenie schema; see
-the disclaimer in coordinator_pocztex.py / const.py.
+Both entries in _REAL_RESPONSE are the actual body of a live GET
+/api/customer/tracking call, captured 2026-08-25 against a real account
+(2 delivered parcels — no in-transit example was available, so the
+progress<100="active" reading in pocztex_is_active() is untested on that
+branch; see the caveat in const.py).
 
     python3 -m pytest tests/test_pocztex_normalize.py -q
 """
@@ -44,6 +43,7 @@ def _load_coordinator_pocztex():
     _stub("homeassistant")
     _stub("homeassistant.config_entries", ConfigEntry=object)
     _stub("homeassistant.core", HomeAssistant=object)
+    _stub("homeassistant.exceptions", ConfigEntryAuthFailed=Exception)
     _stub("homeassistant.helpers")
     _stub("homeassistant.helpers.update_coordinator", DataUpdateCoordinator=_DUC, UpdateFailed=Exception)
 
@@ -54,49 +54,48 @@ def _load_coordinator_pocztex():
 
 _coord = _load_coordinator_pocztex()
 
-# Real not-found response captured live 2026-08-25 (RR123456785PL, a made-up
-# UPU-format test number — status=-1, danePrzesylki nil).
-_NOT_FOUND = {"numer": "RR123456785PL", "found": False, "status_code": "-1"}
+# Real GET /api/customer/tracking response body, captured live 2026-08-25.
+_REAL_RESPONSE = [
+    {
+        "id": 4845650, "label": None, "createdAt": "2026-08-25T21:20:38.512+00:00",
+        "archived": False, "direction": "RECIPIENT", "state": "Doręczona",
+        "pickupDate": None, "consignmentNumber": "PX2319493690", "facilityType": None,
+        "progressPercentage": 100, "archiveCheck": "2026-08-25T21:20:38.512+00:00",
+        "stateDate": "2026-08-03T11:15:52.000+00:00", "stateCode": "P_D",
+        "pni": None, "paymentRetryTime": None,
+    },
+    {
+        "id": 4845649, "label": None, "createdAt": "2026-08-25T21:20:38.507+00:00",
+        "archived": False, "direction": "RECIPIENT", "state": "Doręczona",
+        "pickupDate": None, "consignmentNumber": "PX2320519593", "facilityType": None,
+        "progressPercentage": 100, "archiveCheck": "2026-08-25T21:20:38.507+00:00",
+        "stateDate": "2026-08-13T12:31:53.000+00:00", "stateCode": "P_D",
+        "pni": None, "paymentRetryTime": None,
+    },
+]
 
-# Synthetic — matches the WSDL schema (DanePrzesylki/Zdarzenie fields) but
-# not captured from a real parcel.
-_FOUND = {
-    "numer": "00123456789012345678",
-    "found": True,
-    "status_code": "0",
-    "zakonczono_obsluge": False,
-    "data_nadania": "2026-08-20",
-    "rodzaj_przesylki": "Paczka Pocztex",
-    "events": [
-        {"kod": "01", "nazwa": "Przyjęto w urzędzie nadawczym", "czas": "2026-08-20T10:00:00", "konczace": False},
-        {"kod": "05", "nazwa": "W doręczeniu", "czas": "2026-08-21T08:00:00", "konczace": False},
-    ],
-}
-
-_DELIVERED = dict(_FOUND, zakonczono_obsluge=True, events=[
-    *_FOUND["events"],
-    {"kod": "09", "nazwa": "Doręczono", "czas": "2026-08-21T14:00:00", "konczace": True},
-])
-
-
-def test_not_found_maps_to_inactive_with_flag():
-    row = _coord.normalize_parcel(_NOT_FOUND)
-    assert row["found"] is False
-    assert row["active"] is False
-    assert row["status"] == "Nie znaleziono"
-    assert row["history"] == []
+# Synthetic — no in-transit example was available live.
+_IN_TRANSIT = dict(_REAL_RESPONSE[0], state="W doręczeniu", progressPercentage=60,
+                    stateCode="P_T", consignmentNumber="PX9999999999")
 
 
-def test_found_active_uses_last_event_as_status():
-    row = _coord.normalize_parcel(_FOUND)
-    assert row["found"] is True
+def test_normalize_real_delivered_parcels():
+    rows = [_coord.normalize_parcel(p) for p in _REAL_RESPONSE]
+    assert rows[0]["number"] == "PX2319493690"
+    assert rows[0]["status"] == "Doręczona"
+    assert rows[0]["active"] is False
+    assert rows[1]["number"] == "PX2320519593"
+
+
+def test_normalize_synthetic_in_transit_is_active():
+    row = _coord.normalize_parcel(_IN_TRANSIT)
     assert row["active"] is True
-    assert row["status"] == "W doręczeniu"
-    assert len(row["history"]) == 2
-    assert row["history"][0]["status"] == "Przyjęto w urzędzie nadawczym"
+    assert row["progress"] == 60
 
 
-def test_delivered_is_inactive():
-    row = _coord.normalize_parcel(_DELIVERED)
-    assert row["active"] is False
-    assert row["status"] == "Doręczono"
+def test_pocztex_is_active_boundary():
+    c = sys.modules["const"]
+    assert c.pocztex_is_active(0) is True
+    assert c.pocztex_is_active(99) is True
+    assert c.pocztex_is_active(100) is False
+    assert c.pocztex_is_active(None) is True

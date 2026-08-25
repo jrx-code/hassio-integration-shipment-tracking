@@ -1,9 +1,19 @@
 """DataUpdateCoordinator for the Pocztex carrier.
 
-Like FedEx: no account to poll, just a user-maintained tracking-number list
-in options. Unlike FedEx there's no batch endpoint in use (see api_pocztex.py
-docstring — the SOAP service's batch operation returned inconsistent results
-live, so this polls one number per call).
+Account auto-discovery, like DPD/InPost — the config entry holds a
+refresh_token (never the password) and this coordinator refreshes it every
+poll, both to mint a fresh access token AND to keep the Keycloak session
+from idling out (refresh_token lifetime observed as 30 min; refreshing at
+this integration's default 15 min interval comfortably beats that).
+
+The stored refresh_token is NOT single-use — verified live 2026-08-25 by
+reusing the same one across three separate refresh calls, all successful —
+so like DPD we deliberately do NOT persist the rotated one each poll.
+(Persisting would call async_update_entry on entry.data, which fires this
+integration's own update-listener and reloads the whole config entry every
+poll cycle — exactly the DPD gotcha this avoids by not doing it.) If the
+stored token eventually stops working, refresh raises PocztexAuthError ->
+reauth.
 """
 from __future__ import annotations
 
@@ -12,55 +22,40 @@ from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api_pocztex import PocztexApi, PocztexError
-from .const import CONF_SCAN_INTERVAL, CONF_TRACKING_NUMBERS, DEFAULT_SCAN_INTERVAL, DOMAIN
+from .api_pocztex import PocztexApi, PocztexAuthError, PocztexError
+from .const import (
+    CONF_REFRESH_TOKEN,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    DOMAIN,
+    pocztex_is_active,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def normalize_parcel(result: dict) -> dict:
-    """Flatten one PocztexApi.track() result into the shape used by entities.
-
-    Poczta Polska's own ``zdarzenie.nazwa`` is already a Polish label — no
-    canonical/status_pl mapping needed like DPD/FedEx, and "active" comes
-    straight from their ``zakonczonoObsluge`` (service completed) flag
-    instead of a keyword heuristic.
-
-    Event order (oldest-first vs newest-first) is NOT verified live — no
-    real parcel with more than one event was seen this session. Assumed
-    oldest-first (last item = most recent), matching how DPD/FedEx list
-    their own history; if that assumption is wrong the "status" shown here
-    will lag instead of leading, not silently wrong in a worse way.
-    """
-    if not result.get("found"):
-        return {
-            "number": result.get("numer"),
-            "found": False,
-            "status": "Nie znaleziono",
-            "active": False,
-            "history": [],
-        }
-    events = result.get("events") or []
-    last = events[-1] if events else None
-    history = [
-        {"status": e.get("nazwa"), "raw": e.get("kod"), "date": e.get("czas")}
-        for e in events
-    ]
+def normalize_parcel(raw: dict) -> dict:
+    """Flatten one /api/customer/tracking entry into the shape used by
+    entities. Poczta Polska's own ``state`` field is already a Polish label
+    — no canonical/status_pl mapping needed, same as the SOAP service this
+    replaced."""
+    progress = raw.get("progressPercentage")
     return {
-        "number": result.get("numer"),
-        "found": True,
-        "status": (last or {}).get("nazwa") or "—",
-        "active": not result.get("zakonczono_obsluge", False),
-        "sent_date": result.get("data_nadania"),
-        "shipment_type": result.get("rodzaj_przesylki"),
-        "history": history,
+        "number": raw.get("consignmentNumber"),
+        "status": raw.get("state"),
+        "status_code": raw.get("stateCode"),
+        "progress": progress,
+        "active": pocztex_is_active(progress),
+        "updated": raw.get("stateDate"),
+        "direction": raw.get("direction"),
     }
 
 
 class PocztexCoordinator(DataUpdateCoordinator[dict]):
-    """Poll a fixed list of tracking numbers, one SOAP call per number."""
+    """Poll one Pocztex account and expose active/delivered parcels."""
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL)
@@ -78,13 +73,8 @@ class PocztexCoordinator(DataUpdateCoordinator[dict]):
 
     def _fetch(self) -> dict:
         """Blocking fetch — runs in the executor."""
-        numbers = list(self.entry.options.get(CONF_TRACKING_NUMBERS, []))
-        parcels = []
-        for n in numbers:
-            try:
-                parcels.append(normalize_parcel(self._api.track(n)))
-            except PocztexError as err:
-                _LOGGER.warning("Pocztex track failed for %s: %s", n, err)
+        access, _new_refresh = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
+        parcels = [normalize_parcel(p) for p in self._api.get_parcels(access)]
         active = [p for p in parcels if p["active"]]
         delivered = [p for p in parcels if not p["active"]]
         return {
@@ -97,5 +87,7 @@ class PocztexCoordinator(DataUpdateCoordinator[dict]):
     async def _async_update_data(self) -> dict:
         try:
             return await self.hass.async_add_executor_job(self._fetch)
+        except PocztexAuthError as err:
+            raise ConfigEntryAuthFailed("Pocztex session expired") from err
         except PocztexError as err:
             raise UpdateFailed(str(err)) from err

@@ -1,17 +1,22 @@
 """Constants for the Shipment Tracking (Śledzenie przesyłek) integration.
 
 Multi-carrier: InPost (lockers, QR, multiskrytka), DPD (to-address, status
-history), FedEx (official REST API, track-by-number) and Pocztex (official
-SOAP API, track-by-number). Each config entry carries a ``carrier``
+history), FedEx (official REST API, track-by-number) and Pocztex (Keycloak
+OAuth2, account auto-discovery). Each config entry carries a ``carrier``
 discriminator; entries created before multi-carrier support default to
 InPost.
 
-v2.3.0 (2026-08-25): Pocztex added, same session as FedEx. Poczta Polska's
-own "Pocztex Mobile" app needs email/password + ToS registration (heavier
-than InPost/DPD's SMS flow) for its phone-based auto-discovery, so — like
-FedEx — this uses the official track-by-number SOAP web service instead
-(WS-Security with a fixed public credential, not per-account). GLS is the
-only originally-planned carrier still untouched.
+v2.4.0 (2026-08-25): Pocztex's carrier module replaced — the first cut
+(same-day v2.3.0) used Poczta Polska's official track-by-number SOAP service
+because Pocztex Mobile's own app needs email/password + ToS registration
+(heavier than InPost/DPD's SMS flow) to unlock its phone-based
+auto-discovery. Then it turned out that gate is only for *creating* an
+account — an *existing* one logs in fine over plain HTTP (Keycloak
+authorization_code+PKCE, no browser needed), and its
+/api/customer/tracking endpoint gives real account auto-discovery, same
+shape as DPD/InPost. That's strictly better than track-by-number, so it
+replaced it rather than living alongside it. GLS is the only
+originally-planned carrier still untouched.
 
 v2.2.0 (2026-08-25): FedEx added — architecturally the odd one out. InPost/DPD
 are reverse-engineered consumer apps (phone+SMS, auto-discover "my parcels").
@@ -82,6 +87,9 @@ CONF_REFRESH_TOKEN = "refresh_token"
 CONF_CLIENT_ID = "client_id"
 CONF_CLIENT_SECRET = "client_secret"
 CONF_ACCOUNT_NUMBER = "account_number"
+
+# ---- Pocztex config-entry data keys ----
+CONF_EMAIL = "email"
 
 # ---- FedEx options ----
 CONF_TRACKING_NUMBERS = "tracking_numbers"
@@ -297,25 +305,40 @@ def fedex_is_active(derived_code: str, status_text: str = "") -> bool:
 
 
 # =========================== Pocztex ===========================
-# Official Poczta Polska S.A. SOAP tracking web service — track-by-number,
-# like FedEx, not a reverse-engineered consumer app (Pocztex Mobile itself
-# needs email/password + ToS registration for the phone-auto-discovery
-# feature, a much heavier gate than InPost/DPD's SMS flow, so this carrier
-# skips it — same tradeoff as FedEx). Auth is WS-Security UsernameToken with
-# a fixed, publicly documented pair (username "sledzeniepp", password "PPSA")
-# used by third-party integrators for years — not a per-account secret, so
-# it's a plain constant here rather than something fetched from config.
+# Pocztex Mobile's own backend — Keycloak OAuth2 authorization_code+PKCE
+# (idm.pocztex.pl, realm "ppsa") for auth, aplikacja.pocztex.pl/api/customer/
+# tracking for the recipient parcel list. Superseded an earlier SOAP
+# track-by-number implementation (Poczta Polska's official tt.poczta-polska.pl
+# tracking web service) once this proved auto-discovery — like DPD/InPost —
+# actually works and isn't gated behind self-service signup (registration is
+# app-only, but an existing account logs in fine over plain HTTP with no
+# browser). Reimplemented from the observed protocol; no code copied.
 #
-# Verified live 2026-08-25: WS-Security auth accepted, the exact request/
-# response XML shape (namespace-qualified <numer> under the sprawdzPrzesylkePl
-# element), and the "not found" response (status=-1, danePrzesylki nil) for
-# both a UPU-format test number (RR123456785PL) and a Pocztex-style 20-digit
-# numeric one (per third-party docs: Pocztex parcel numbers are 20 digits
-# starting with "00" — NOT verified against this service with a real
-# Pocztex waybill, only structurally accepted). The batch operation
-# (sprawdzPrzesylkiPl) returned only 1 result for 2 submitted numbers in two
-# separate tests — unexplained, not used here; per-number calls only.
-# Real found-parcel response shape (a non-nil danePrzesylki) not yet seen.
-POCZTEX_SOAP_URL = "https://tt.poczta-polska.pl/Sledzenie/services/Sledzenie"
-POCZTEX_WS_USER = "sledzeniepp"
-POCZTEX_WS_PASSWORD = "PPSA"
+# Verified live 2026-08-25 against a real account: full login (email+password
+# -> PKCE code -> token exchange, zero browser involved), GET .../tracking
+# with a real Bearer token returning real parcels (2 delivered, numbers
+# PX-prefixed — matches third-party docs on Pocztex's number format).
+# direct password grant is explicitly disabled for this client
+# ("Client not allowed for direct access grants") and offline_access scope
+# is rejected ("Invalid scopes") — both confirmed by the server's own error,
+# not assumed — hence the full PKCE dance instead of a one-shot password
+# grant, and the "refresh often enough to never let the session idle out"
+# design instead of a long-lived offline token.
+POCZTEX_IDM_URL = "https://idm.pocztex.pl"
+POCZTEX_REALM = "ppsa"
+POCZTEX_CLIENT_ID = "customer-front"
+POCZTEX_APP_URL = "https://aplikacja.pocztex.pl"
+POCZTEX_REDIRECT_URI = f"{POCZTEX_APP_URL}/app/"
+POCZTEX_TRACKING_URL = f"{POCZTEX_APP_URL}/api/customer/tracking"
+
+
+def pocztex_is_active(progress_percentage) -> bool:
+    """Only ``progressPercentage`` (0-100) was seen live, and only at 100
+    (both test parcels were already delivered) — no in-transit example to
+    confirm intermediate values behave as expected. Treating <100 as active
+    is the obvious reading of a progress percentage, not verified beyond
+    the terminal case."""
+    try:
+        return float(progress_percentage or 0) < 100
+    except (TypeError, ValueError):
+        return True

@@ -1,8 +1,7 @@
-"""Pocztex sensors: active-tracking-number count with details in attributes.
+"""Pocztex sensors: active-parcel count with full parcel lists in attributes.
 
-Mirrors the FedEx pattern (manually-tracked numbers, no account) — one
-sensor whose state is the active count and whose attributes carry parcel
-details.
+Mirrors the DPD "W drodze" pattern — one sensor per account whose state is
+the active-parcel count and whose attributes carry the parcel details.
 """
 from __future__ import annotations
 
@@ -12,7 +11,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ALIAS, CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT, DOMAIN
+from .const import CONF_ALIAS, CONF_ARCHIVE_LIMIT, CONF_EMAIL, DEFAULT_ARCHIVE_LIMIT, DOMAIN
 from .coordinator_pocztex import PocztexCoordinator
 
 
@@ -27,15 +26,14 @@ async def async_setup_pocztex_sensors(
 def _row(p: dict) -> dict:
     return {
         "numer": p.get("number"),
-        "znaleziono": p.get("found"),
         "status": p.get("status"),
-        "typ_przesylki": p.get("shipment_type"),
-        "data_nadania": p.get("sent_date"),
+        "postep": p.get("progress"),
+        "aktualizacja": p.get("updated"),
     }
 
 
 class PocztexActiveSensor(CoordinatorEntity[PocztexCoordinator], SensorEntity):
-    """Active Pocztex tracking numbers, with details in attributes."""
+    """Active Pocztex parcels for one account, with parcel lists in attributes."""
 
     _attr_has_entity_name = True
     _attr_name = "W drodze"
@@ -45,10 +43,11 @@ class PocztexActiveSensor(CoordinatorEntity[PocztexCoordinator], SensorEntity):
 
     def __init__(self, coordinator: PocztexCoordinator) -> None:
         super().__init__(coordinator)
-        alias = coordinator.entry.data.get(CONF_ALIAS) or coordinator.entry.entry_id
-        self._attr_unique_id = f"pocztex_{coordinator.entry.entry_id}_active"
+        email = coordinator.entry.data.get(CONF_EMAIL, coordinator.entry.entry_id)
+        alias = coordinator.entry.data.get(CONF_ALIAS) or email
+        self._attr_unique_id = f"pocztex_{email}_active"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, f"pocztex_{coordinator.entry.entry_id}")},
+            identifiers={(DOMAIN, f"pocztex_{email}")},
             name=f"Pocztex — {alias}",
             manufacturer="Poczta Polska",
             model="Przesyłki",

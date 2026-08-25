@@ -13,6 +13,7 @@ from homeassistant.config_entries import (
     ConfigFlowResult,
     OptionsFlow,
 )
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import callback
 from homeassistant.helpers.selector import (
     SelectSelector,
@@ -23,7 +24,7 @@ from homeassistant.helpers.selector import (
 from .api import InPostApi, InPostError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
-from .api_pocztex import PocztexApi, PocztexError
+from .api_pocztex import PocztexApi, PocztexAuthError, PocztexError
 from .const import (
     CARRIER_DPD,
     CARRIER_FEDEX,
@@ -37,6 +38,7 @@ from .const import (
     CONF_CARRIER,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_EMAIL,
     CONF_NOTIFY,
     CONF_PHONE,
     CONF_PREFIX,
@@ -71,6 +73,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         self._phone: str = ""
         self._reauth_entry: ConfigEntry | None = None
         self._dpd: DpdApi | None = None
+        self._email: str = ""
 
     # ------------------------- carrier select -------------------------
     async def async_step_user(
@@ -305,28 +308,50 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_pocztex(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        """No credential to enter — the SOAP service uses a fixed public
-        login (see const.py). Just an alias, validated by actually calling
-        the service once so a network/service problem surfaces at setup."""
+        """Email+password, existing Pocztex Mobile account required —
+        registration is app-only, this integration can't create one.
+        Validated by actually logging in (full Keycloak PKCE flow); only
+        the resulting refresh_token is stored, never the password."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._alias = user_input[CONF_ALIAS].strip()
+            self._alias = user_input.get(CONF_ALIAS, "").strip()
+            self._email = user_input[CONF_EMAIL].strip()
+            password = user_input[CONF_PASSWORD]
             try:
-                await self.hass.async_add_executor_job(
-                    PocztexApi().track, "RR000000000PL"
+                _access, refresh_token = await self.hass.async_add_executor_job(
+                    PocztexApi().login, self._email, password
                 )
+            except PocztexAuthError as err:
+                _LOGGER.warning("Pocztex login rejected: %s", err)
+                errors["base"] = "invalid_auth"
             except PocztexError as err:
-                _LOGGER.warning("Pocztex connectivity check failed: %s", err)
+                _LOGGER.error("Pocztex login failed: %s", err)
                 errors["base"] = "cannot_connect"
             else:
-                await self.async_set_unique_id(f"pocztex_{self._alias.lower()}")
-                self._abort_if_unique_id_configured()
-                data = {CONF_CARRIER: CARRIER_POCZTEX, CONF_ALIAS: self._alias}
-                return self.async_create_entry(title=f"Pocztex — {self._alias}", data=data)
+                if self._reauth_entry is None:
+                    await self.async_set_unique_id(f"pocztex_{self._email.lower()}")
+                    self._abort_if_unique_id_configured()
+                data = {
+                    CONF_CARRIER: CARRIER_POCZTEX,
+                    CONF_ALIAS: self._alias or self._email,
+                    CONF_EMAIL: self._email,
+                    CONF_REFRESH_TOKEN: refresh_token,
+                }
+                if self._reauth_entry is not None:
+                    return self.async_update_reload_and_abort(self._reauth_entry, data=data)
+                return self.async_create_entry(
+                    title=f"Pocztex — {self._alias or self._email}", data=data
+                )
 
         return self.async_show_form(
             step_id="pocztex",
-            data_schema=vol.Schema({vol.Required(CONF_ALIAS): str}),
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ALIAS, default=self._alias): str,
+                    vol.Required(CONF_EMAIL, default=self._email): str,
+                    vol.Required(CONF_PASSWORD): str,
+                }
+            ),
             errors=errors,
         )
 
@@ -341,6 +366,11 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         self._alias = entry_data.get(CONF_ALIAS, "")
         self._prefix = entry_data.get(CONF_PREFIX, "+48")
         self._phone = entry_data.get(CONF_PHONE, "")
+        if self._carrier == CARRIER_POCZTEX:
+            # No SMS-resend equivalent — just re-show the login form with
+            # the email prefilled, same step as initial setup.
+            self._email = entry_data.get(CONF_EMAIL, "")
+            return await self.async_step_pocztex()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(
@@ -383,20 +413,17 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
 class ShipmentOptionsFlow(OptionsFlow):
     """Scan interval, archive/delivered cap, notify toggle.
 
-    FedEx and Pocztex entries additionally carry the tracked-numbers list
-    here (comma separated in the form, split/joined on the way in/out) —
-    it's the closest either has to "adding a parcel", since neither has an
-    account to auto-discover from, and options don't need a reauth like
-    credentials would.
+    FedEx entries additionally carry the tracked-numbers list here (comma
+    separated in the form, split/joined on the way in/out) — it's the
+    closest FedEx has to "adding a parcel", since there's no account to
+    auto-discover from, and options don't need a reauth like credentials
+    would. Pocztex doesn't need this — it auto-discovers, like DPD.
     """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        needs_numbers = self.config_entry.data.get(CONF_CARRIER) in (
-            CARRIER_FEDEX,
-            CARRIER_POCZTEX,
-        )
+        needs_numbers = self.config_entry.data.get(CONF_CARRIER) == CARRIER_FEDEX
         if user_input is not None:
             data = dict(user_input)
             if needs_numbers:

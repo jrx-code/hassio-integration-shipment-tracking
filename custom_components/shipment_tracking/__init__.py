@@ -1,4 +1,4 @@
-"""Śledzenie przesyłek — multi-carrier parcel tracking (InPost, DPD)."""
+"""Śledzenie przesyłek — multi-carrier parcel tracking (InPost, DPD, FedEx, Pocztex, DHL)."""
 from __future__ import annotations
 
 import logging
@@ -9,6 +9,7 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
 from .const import (
+    CARRIER_DHL,
     CARRIER_DPD,
     CARRIER_FEDEX,
     CARRIER_INPOST,
@@ -18,6 +19,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator import InPostCoordinator
+from .coordinator_dhl import DhlCoordinator
 from .coordinator_dpd import DpdCoordinator
 from .coordinator_fedex import FedexCoordinator
 from .coordinator_pocztex import PocztexCoordinator
@@ -34,6 +36,7 @@ PLATFORMS_BY_CARRIER: dict[str, list[Platform]] = {
     CARRIER_DPD: [Platform.SENSOR],
     CARRIER_FEDEX: [Platform.SENSOR],
     CARRIER_POCZTEX: [Platform.SENSOR],
+    CARRIER_DHL: [Platform.SENSOR],
 }
 
 
@@ -45,13 +48,17 @@ def carrier_of(entry: ConfigEntry) -> str:
 async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> bool:
     """Set up one carrier account from a config entry."""
     carrier = carrier_of(entry)
-    coordinator: InPostCoordinator | DpdCoordinator | FedexCoordinator | PocztexCoordinator
+    coordinator: (
+        InPostCoordinator | DpdCoordinator | FedexCoordinator | PocztexCoordinator | DhlCoordinator
+    )
     if carrier == CARRIER_DPD:
         coordinator = DpdCoordinator(hass, entry)
     elif carrier == CARRIER_FEDEX:
         coordinator = FedexCoordinator(hass, entry)
     elif carrier == CARRIER_POCZTEX:
         coordinator = PocztexCoordinator(hass, entry)
+    elif carrier == CARRIER_DHL:
+        coordinator = DhlCoordinator(hass, entry)
     else:
         coordinator = InPostCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()

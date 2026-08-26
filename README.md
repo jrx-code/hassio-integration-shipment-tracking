@@ -12,7 +12,7 @@
 ![License](https://img.shields.io/github/license/jrx-code/hassio-integration-shipment-tracking?style=flat-square&color=FFCD00)
 ![Made in Poland](https://img.shields.io/badge/made_in-🇵🇱_Poland-white?style=flat-square)
 
-**Track your parcels natively in Home Assistant — InPost, DPD, FedEx and Pocztex today, more carriers planned — ready-to-pickup, in-transit and archive, as first-class entities.**
+**Track your parcels natively in Home Assistant — InPost, DPD, FedEx, Pocztex and DHL today, more carriers planned — ready-to-pickup, in-transit and archive, as first-class entities.**
 
 </div>
 
@@ -25,7 +25,7 @@
 - 🗄️ **Archiwum / dostarczone** — recently delivered / closed parcels (capped, configurable)
 - 👥 **Multi-account** — add several accounts per carrier, each as its own device
 - 🤝 **App-to-app sharing** (InPost only) — hand a ready parcel to another configured InPost account (a paired "friend"), on a button press or automatically
-- 🔑 **SMS login, no scraping** — official mobile auth for both carriers; refresh tokens stored encrypted by HA
+- 🔑 **Official mobile/web auth, no scraping** — InPost/DPD/DHL use SMS login (DHL's stores a session-cookie snapshot instead of a refresh token, verified to survive a real sliding 30-min window). Pocztex is the exception: its Keycloak session has a hard 30-minute cap that no amount of refreshing can extend, so its config entry stores the account password and re-logs-in every poll instead
 - 🧩 **Almost dependency-free** — stdlib `urllib` client for both carriers; the only requirement is `segno`, for rendering InPost pickup QR codes
 - 🎯 **One framework, one entity shape per carrier** — adding a new carrier module doesn't touch the others
 
@@ -50,6 +50,17 @@
 | Entity | State | Key attributes |
 |---|---|---|
 | `sensor` · **W drodze** | number of active (not yet delivered) parcels | `active_count`, `delivered_count`, `w_drodze[]` (numer, nadawca, status, aktualizacja), `dostarczone[]` (latest N) |
+
+### DHL (per account)
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor` · **W drodze** | number of active (not yet delivered) parcels — own plus parcels shared to this account | `active_count`, `delivered_count`, `w_drodze[]` (numer, nadawca, status, aktualizacja, udostepniona), `dostarczone[]` (latest N) |
+
+Only one canonical status is confirmed live (`TT_DOR` → "Dostarczona") — the
+research account had a single, already-delivered parcel. Any other status
+code shows up as its raw DHL string rather than a guessed translation; see
+`const.py`'s DHL section.
 
 ## 🤝 Sharing a parcel with another account (InPost only)
 
@@ -98,7 +109,7 @@ Prerequisites and limits:
 ### HACS (recommended)
 
 1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-shipment-tracking` as **Integration** — or just click the **Open in HACS** badge above.
-2. Install **Shipment Tracking (InPost, DPD, FedEx, Pocztex)**, then restart Home Assistant.
+2. Install **Shipment Tracking (InPost, DPD, FedEx, Pocztex, DHL)**, then restart Home Assistant.
 
 ### Manual
 
@@ -119,6 +130,11 @@ DPD:
 1.  Alias        →  optional
 2.  Phone        →  9 digits
 3.  SMS code     →  sent to that number (DPD Mobile)
+
+DHL:
+1.  Alias        →  optional
+2.  Phone        →  9 digits
+3.  SMS code     →  sent to that number (Mój DHL)
 ```
 
 When a refresh token expires, Home Assistant starts a re-auth (a fresh SMS) for
@@ -137,7 +153,7 @@ archived/delivered-parcels cap, ready-to-pickup notification flag (InPost).
 
 ## ⚠️ Disclaimer
 
-Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, or Poczta Polska/Pocztex. For InPost/DPD/Pocztex it talks to each carrier's consumer mobile API on your behalf using your own account; FedEx uses their official, documented developer API instead. Use it at your own discretion. All carrier names and logos belong to their respective owners.
+Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, DHL, or Poczta Polska/Pocztex. For InPost/DPD/Pocztex/DHL it talks to each carrier's consumer mobile/web API on your behalf using your own account; FedEx uses their official, documented developer API instead. Use it at your own discretion. All carrier names and logos belong to their respective owners.
 
 ## 📄 License
 

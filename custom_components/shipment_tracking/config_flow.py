@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import uuid
 from collections.abc import Mapping
 from typing import Any
 
@@ -22,10 +23,12 @@ from homeassistant.helpers.selector import (
 )
 
 from .api import InPostApi, InPostError
+from .api_dhl import DhlApi, DhlAuthError, DhlError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
 from .api_pocztex import PocztexApi, PocztexAuthError, PocztexError
 from .const import (
+    CARRIER_DHL,
     CARRIER_DPD,
     CARRIER_FEDEX,
     CARRIER_INPOST,
@@ -38,6 +41,8 @@ from .const import (
     CONF_CARRIER,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
+    CONF_COOKIES,
+    CONF_DEVICE_ID,
     CONF_EMAIL,
     CONF_NOTIFY,
     CONF_PHONE,
@@ -73,6 +78,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         self._phone: str = ""
         self._reauth_entry: ConfigEntry | None = None
         self._dpd: DpdApi | None = None
+        self._dhl: DhlApi | None = None
         self._email: str = ""
 
     # ------------------------- carrier select -------------------------
@@ -87,6 +93,8 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_fedex()
             if self._carrier == CARRIER_POCZTEX:
                 return await self.async_step_pocztex()
+            if self._carrier == CARRIER_DHL:
+                return await self.async_step_dhl()
             return await self.async_step_inpost()
 
         return self.async_show_form(
@@ -310,8 +318,19 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
     ) -> ConfigFlowResult:
         """Email+password, existing Pocztex Mobile account required —
         registration is app-only, this integration can't create one.
-        Validated by actually logging in (full Keycloak PKCE flow); only
-        the resulting refresh_token is stored, never the password."""
+        Validated by actually logging in (full Keycloak PKCE flow).
+
+        CHANGED 2026-08-26: the password is now stored in entry.data
+        alongside the refresh_token (found live: this Keycloak client's
+        session has a hard, non-extendable 30 min lifetime — decoded JWTs
+        show refresh() mints a token with a genuinely new jti each call,
+        but iat/exp stay pinned to the ORIGINAL login regardless, so no
+        amount of refreshing avoids reauth). The coordinator re-logs-in
+        with the stored password well inside that window instead of
+        relying on refresh() to extend a session it structurally can't
+        extend. Same storage trust level entry.data already has for every
+        other carrier's refresh_token — not a new exposure, config entries
+        aren't otherwise encrypted at rest."""
         errors: dict[str, str] = {}
         if user_input is not None:
             self._alias = user_input.get(CONF_ALIAS, "").strip()
@@ -335,6 +354,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_CARRIER: CARRIER_POCZTEX,
                     CONF_ALIAS: self._alias or self._email,
                     CONF_EMAIL: self._email,
+                    CONF_PASSWORD: password,
                     CONF_REFRESH_TOKEN: refresh_token,
                 }
                 if self._reauth_entry is not None:
@@ -353,6 +373,79 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
             ),
             errors=errors,
+        )
+
+    # ------------------------------ DHL --------------------------------
+    async def async_step_dhl(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._alias = (user_input.get(CONF_ALIAS) or "").strip()
+            self._phone = normalize_phone(user_input[CONF_PHONE])
+            if not (self._phone.isdigit() and len(self._phone) == 9):
+                errors["base"] = "invalid_phone"
+            else:
+                if self._reauth_entry is None:
+                    await self.async_set_unique_id(f"dhl_{self._phone}")
+                    self._abort_if_unique_id_configured()
+                self._dhl = DhlApi()
+                try:
+                    ok = await self.hass.async_add_executor_job(
+                        self._dhl.send_sms, self._phone
+                    )
+                except DhlError as err:
+                    _LOGGER.error("DHL send_sms failed: %s", err)
+                    errors["base"] = "cannot_connect"
+                else:
+                    if ok:
+                        return await self.async_step_dhl_sms()
+                    errors["base"] = "sms_rejected"
+
+        return self.async_show_form(
+            step_id="dhl",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(CONF_ALIAS, default=self._alias): str,
+                    vol.Required(CONF_PHONE, default=self._phone): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_dhl_sms(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            code = str(user_input["code"]).strip()
+            assert self._dhl is not None
+            device_id = str(uuid.uuid4())
+            try:
+                await self.hass.async_add_executor_job(
+                    self._dhl.verify_sms, self._phone, code, device_id, "Home Assistant"
+                )
+            except DhlAuthError as err:
+                _LOGGER.warning("DHL verify_sms failed: %s", err)
+                errors["base"] = "invalid_code"
+            else:
+                alias = self._alias or self._phone
+                data = {
+                    CONF_CARRIER: CARRIER_DHL,
+                    CONF_ALIAS: alias,
+                    CONF_PHONE: self._phone,
+                    CONF_DEVICE_ID: device_id,
+                    CONF_COOKIES: self._dhl.export_cookies(),
+                }
+                if self._reauth_entry is not None:
+                    return self.async_update_reload_and_abort(self._reauth_entry, data=data)
+                return self.async_create_entry(title=f"DHL — {alias}", data=data)
+
+        return self.async_show_form(
+            step_id="dhl_sms",
+            data_schema=vol.Schema({vol.Required("code"): str}),
+            errors=errors,
+            description_placeholders={"phone": f"+48 {self._phone}"},
         )
 
     # ------------------------------ reauth ----------------------------
@@ -386,13 +479,20 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                     )
                     if ok:
                         return await self.async_step_dpd_sms()
+                elif self._carrier == CARRIER_DHL:
+                    self._dhl = DhlApi()
+                    ok = await self.hass.async_add_executor_job(
+                        self._dhl.send_sms, self._phone
+                    )
+                    if ok:
+                        return await self.async_step_dhl_sms()
                 else:
                     ok = await self.hass.async_add_executor_job(
                         _inpost_api().send_sms, self._prefix, self._phone
                     )
                     if ok:
                         return await self.async_step_sms()
-            except (InPostError, DpdError) as err:
+            except (InPostError, DpdError, DhlError) as err:
                 _LOGGER.error("reauth send_sms failed: %s", err)
                 errors["base"] = "cannot_connect"
             else:

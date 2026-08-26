@@ -69,12 +69,14 @@ CARRIER_INPOST = "inpost"
 CARRIER_DPD = "dpd"
 CARRIER_FEDEX = "fedex"
 CARRIER_POCZTEX = "pocztex"
-CARRIERS = [CARRIER_INPOST, CARRIER_DPD, CARRIER_FEDEX, CARRIER_POCZTEX]
+CARRIER_DHL = "dhl"
+CARRIERS = [CARRIER_INPOST, CARRIER_DPD, CARRIER_FEDEX, CARRIER_POCZTEX, CARRIER_DHL]
 CARRIER_LABELS = {
     CARRIER_INPOST: "InPost Paczkomaty",
     CARRIER_DPD: "DPD",
     CARRIER_FEDEX: "FedEx",
     CARRIER_POCZTEX: "Pocztex",
+    CARRIER_DHL: "DHL",
 }
 
 # ---- Common config-entry data keys ----
@@ -82,6 +84,10 @@ CONF_ALIAS = "alias"
 CONF_PREFIX = "prefix"
 CONF_PHONE = "phone"
 CONF_REFRESH_TOKEN = "refresh_token"
+
+# ---- DHL config-entry data keys ----
+CONF_DEVICE_ID = "device_id"
+CONF_COOKIES = "cookies"
 
 # ---- FedEx config-entry data keys ----
 CONF_CLIENT_ID = "client_id"
@@ -144,6 +150,30 @@ STATUS_PL = {
 
 def status_pl(status: str) -> str:
     return STATUS_PL.get(status or "", status or "—")
+
+
+# InPost's own canonical buckets don't collapse onto DPD/FedEx's shared
+# vocabulary (created/in_transport/handed_out_for_delivery/delivered/...) —
+# "ready" means "sitting in a locker with a pickup code/QR", a locker-specific
+# concept the other carriers don't have (DPD's closest analogue,
+# waiting_for_pickup, is a courier pickup point, not a coded locker). So
+# InPost keeps its own three buckets rather than being forced into the
+# others' shape; only the *pattern* (raw -> canonical -> label/is_active) is
+# shared, same as dpd_canonical()/fedex_canonical() below.
+INPOST_TERMINAL = {"archived"}
+
+
+def inpost_canonical(raw: str) -> str:
+    """Map a raw InPost status to its canonical bucket (ready/in_transit/archived)."""
+    if raw in READY:
+        return "ready"
+    if raw in IN_TRANSIT:
+        return "in_transit"
+    return "archived"
+
+
+def inpost_is_active(raw: str) -> bool:
+    return inpost_canonical(raw) not in INPOST_TERMINAL
 
 
 # ============================ DPD =============================
@@ -321,9 +351,19 @@ def fedex_is_active(derived_code: str, status_text: str = "") -> bool:
 # direct password grant is explicitly disabled for this client
 # ("Client not allowed for direct access grants") and offline_access scope
 # is rejected ("Invalid scopes") — both confirmed by the server's own error,
-# not assumed — hence the full PKCE dance instead of a one-shot password
-# grant, and the "refresh often enough to never let the session idle out"
-# design instead of a long-lived offline token.
+# not assumed — hence the full PKCE login() dance instead of a one-shot
+# password grant.
+#
+# SESSION LIFETIME (corrected 2026-08-26, live, twice — see
+# coordinator_pocztex.py for the full story): this client's Keycloak
+# session has a hard, non-extendable 30-minute cap. refresh() mints a
+# genuinely new token (fresh jti) each call, but the decoded JWT's iat/exp
+# stay pinned to the ORIGINAL login instant regardless — "refresh often
+# enough to never let the session idle out" doesn't apply, there is no
+# idle timer to reset. The only way to stay authenticated past 30 minutes
+# is a fresh login(), which is why the config entry stores the account
+# password (config_flow.py) and the coordinator re-logs-in every poll
+# instead of refreshing.
 POCZTEX_IDM_URL = "https://idm.pocztex.pl"
 POCZTEX_REALM = "ppsa"
 POCZTEX_CLIENT_ID = "customer-front"
@@ -342,3 +382,72 @@ def pocztex_is_active(progress_percentage) -> bool:
         return float(progress_percentage or 0) < 100
     except (TypeError, ValueError):
         return True
+
+
+# ============================= DHL ==============================
+# "Mój DHL" (pl.mojdhl.app), DHL eCommerce/Parcel Polska — a Next.js web app
+# (mojdhl.pl) reverse-engineered by reading its own JS bundle, no APK
+# decompilation needed (endpoints appear as plaintext in the shipped chunks).
+#
+# Auth: phone + SMS, same shape as InPost/DPD, but gated by an Altcha
+# proof-of-work captcha (solved by brute-forcing SHA-256(salt+n)==challenge
+# for n in 0..maxnumber, ~100000 — a fraction of a second) on every auth
+# call. ``prefix`` must be sent WITHOUT a leading "+" ("48", not "+48") —
+# confirmed live, "+48" gets a 422 "Prefix is incorrect".
+#
+# SESSION MECHANICS (verified live 2026-08-26, in-browser AND from a plain
+# stdlib http.cookiejar client — deliberately checked both, because Pocztex
+# looked fine in-browser-adjacent testing too and wasn't): GET /auth/refresh
+# (no body, no token param — just ?deviceId=&deviceName=) mints a token with
+# a genuinely fresh ``iat`` = the call's own timestamp (decoded JWT,
+# cross-checked against wall-clock `date -u`), a real sliding 30-minute
+# window, NOT pinned to the original login like Pocztex's. What carries the
+# session is the httpOnly cookies set during login (BIGipServer.../TS...,
+# Secure, no Max-Age — session-scoped, not readable from JS) — not the
+# opaque ``refresh`` string the login response also returns (that field's
+# actual consumer, if any, wasn't identified; refresh_session() works
+# without ever sending it). So the DHL carrier module persists cookies,
+# not a token string, across polls (api_dhl.py/coordinator_dhl.py).
+# UNTESTED: whether a serialized-then-restored cookiejar survives an actual
+# HA restart the way an in-memory one survives repeated polls within one
+# process — only the latter was verified live.
+DHL_BASE = "https://mojdhl.pl/api/dhl/public"
+DHL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
+
+# Canonical status buckets -> Polish labels. Only TT_DOR (delivered) has
+# been seen live — the account used for research had exactly one parcel,
+# already delivered. Deliberately NOT guessing the rest of DHL's status
+# vocabulary from DPD/InPost's (see const.py module docstring elsewhere in
+# this repo for why that's a bad idea) — unrecognized codes fall back to
+# showing the raw code, not a wrong translation.
+DHL_CANONICAL_PL = {
+    "delivered": "Dostarczona",
+    "unknown": "—",
+}
+
+DHL_TERMINAL = {"delivered"}
+
+_DHL_STATUS_EXACT = {
+    "TT_DOR": "delivered",  # verified live 2026-08-26 — "Doręczona" in the UI
+}
+
+
+def dhl_canonical(raw: str) -> str:
+    """Map a raw DHL status code to a canonical bucket. Only one code is
+    actually known (see _DHL_STATUS_EXACT); anything else is "unknown" on
+    purpose rather than a guessed keyword match."""
+    return _DHL_STATUS_EXACT.get((raw or "").strip().upper(), "unknown")
+
+
+def dhl_status_pl(raw: str) -> str:
+    bucket = dhl_canonical(raw)
+    if bucket == "unknown":
+        return raw or "—"
+    return DHL_CANONICAL_PL.get(bucket, raw or "—")
+
+
+def dhl_is_active(raw: str) -> bool:
+    """Unknown codes default to "active" (not terminal) — safer to show an
+    unrecognized parcel as still-tracked than to silently drop it into
+    archive on a status this integration has never seen."""
+    return dhl_canonical(raw) not in DHL_TERMINAL

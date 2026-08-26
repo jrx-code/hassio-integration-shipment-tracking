@@ -13,7 +13,7 @@ import ssl
 import urllib.error
 import urllib.request
 
-from .const import ARCHIVED, IN_TRANSIT, READY
+from .const import inpost_canonical
 
 
 class NotModified(Exception):
@@ -29,11 +29,7 @@ class InPostError(Exception):
 
 
 def _state_of(status: str) -> str:
-    if status in READY:
-        return "ready"
-    if status in IN_TRANSIT:
-        return "in_transit"
-    return "archived"
+    return inpost_canonical(status)
 
 
 def _phone_value(raw) -> str | None:

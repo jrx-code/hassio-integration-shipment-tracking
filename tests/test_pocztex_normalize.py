@@ -42,7 +42,8 @@ def _load_coordinator_pocztex():
 
     _stub("homeassistant")
     _stub("homeassistant.config_entries", ConfigEntry=object)
-    _stub("homeassistant.core", HomeAssistant=object)
+    _stub("homeassistant.const", CONF_PASSWORD="password")
+    _stub("homeassistant.core", HomeAssistant=object, callback=lambda f: f)
     _stub("homeassistant.exceptions", ConfigEntryAuthFailed=Exception)
     _stub("homeassistant.helpers")
     _stub("homeassistant.helpers.update_coordinator", DataUpdateCoordinator=_DUC, UpdateFailed=Exception)

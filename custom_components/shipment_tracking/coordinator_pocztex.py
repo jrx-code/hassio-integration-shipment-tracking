@@ -1,19 +1,32 @@
 """DataUpdateCoordinator for the Pocztex carrier.
 
-Account auto-discovery, like DPD/InPost — the config entry holds a
-refresh_token (never the password) and this coordinator refreshes it every
-poll, both to mint a fresh access token AND to keep the Keycloak session
-from idling out (refresh_token lifetime observed as 30 min; refreshing at
-this integration's default 15 min interval comfortably beats that).
+Account auto-discovery, like DPD/InPost — the config entry holds the
+credentials needed to keep polling.
 
-The stored refresh_token is NOT single-use — verified live 2026-08-25 by
-reusing the same one across three separate refresh calls, all successful —
-so like DPD we deliberately do NOT persist the rotated one each poll.
-(Persisting would call async_update_entry on entry.data, which fires this
-integration's own update-listener and reloads the whole config entry every
-poll cycle — exactly the DPD gotcha this avoids by not doing it.) If the
-stored token eventually stops working, refresh raises PocztexAuthError ->
-reauth.
+CORRECTED 2026-08-26, twice, live, on a real account:
+
+1st attempt (wrong diagnosis): assumed the refresh_token's ``exp`` claim
+(``iat + 1800s``) was a sliding idle timeout, and that persisting each
+poll's rotated refresh_token would keep the session alive indefinitely —
+implemented via async_update_entry_silently(). Deployed, then proven false
+by 82 minutes of dead entity + an unchanged token in storage: refresh()
+DOES mint a token with a genuinely new ``jti`` each call (confirmed by a
+live login+refresh+refresh test outside HA), but ``iat``/``exp`` stay
+pinned to the ORIGINAL login instant no matter how many times or how soon
+after issuance refresh() is called. That's a Keycloak SSO-session-level
+cap on this client (``ppsa``/``customer-front``), not a per-token idle
+timer — refreshing cannot extend it, full stop, so no refresh-token-only
+design can survive past 30 minutes.
+
+Actual fix: the config entry now also stores the account password
+(config_flow.py, CHANGED 2026-08-26) and this coordinator does a full
+login() each poll instead of refresh() — a fresh Keycloak session, fresh
+30-minute window, every ~15 minutes (this integration's default interval,
+comfortably inside the window). refresh_token is no longer read; kept in
+entry.data only for entries that predate this fix (harmless, unused).
+
+DPD does NOT have this problem — its refresh_token was verified
+non-expiring/reusable, a genuinely different case.
 """
 from __future__ import annotations
 
@@ -21,13 +34,14 @@ import logging
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api_pocztex import PocztexApi, PocztexAuthError, PocztexError
 from .const import (
-    CONF_REFRESH_TOKEN,
+    CONF_EMAIL,
     CONF_SCAN_INTERVAL,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -72,8 +86,12 @@ class PocztexCoordinator(DataUpdateCoordinator[dict]):
         self._api = PocztexApi()
 
     def _fetch(self) -> dict:
-        """Blocking fetch — runs in the executor."""
-        access, _new_refresh = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
+        """Blocking fetch — runs in the executor. Full login every poll, not
+        refresh — see module docstring for why refresh() alone can't work
+        here."""
+        access, _refresh = self._api.login(
+            self.entry.data[CONF_EMAIL], self.entry.data.get(CONF_PASSWORD)
+        )
         parcels = [normalize_parcel(p) for p in self._api.get_parcels(access)]
         active = [p for p in parcels if p["active"]]
         delivered = [p for p in parcels if not p["active"]]
@@ -88,6 +106,6 @@ class PocztexCoordinator(DataUpdateCoordinator[dict]):
         try:
             return await self.hass.async_add_executor_job(self._fetch)
         except PocztexAuthError as err:
-            raise ConfigEntryAuthFailed("Pocztex session expired") from err
+            raise ConfigEntryAuthFailed("Pocztex password rejected") from err
         except PocztexError as err:
             raise UpdateFailed(str(err)) from err

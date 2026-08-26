@@ -2,5 +2,9 @@
 __pycache__/
 *.py[cod]
 
-# Local dev reference — a copy of the standalone poller, kept locally only.
+# Local dev reference — a copy of the standalone poller (its own repo:
+# private/inpost-poller). Kept locally for reference, not part of this repo.
 reference-poller/
+
+# Internal handover notes — local only, never publish
+HANDOVER*.md

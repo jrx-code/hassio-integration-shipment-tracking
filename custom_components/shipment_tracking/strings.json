@@ -55,6 +55,19 @@
           "email": "E-mail",
           "password": "Password"
         }
+      },
+      "dhl": {
+        "title": "Add a DHL account",
+        "description": "An SMS code will be sent to this number (Mój DHL).",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "phone": "Phone number (9 digits)"
+        }
+      },
+      "dhl_sms": {
+        "title": "Enter the DHL SMS code",
+        "description": "Code sent to {phone}.",
+        "data": { "code": "Code" }
       }
     },
     "error": {

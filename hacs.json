@@ -1,5 +1,5 @@
 {
-  "name": "Shipment Tracking (InPost, DPD, FedEx, Pocztex)",
+  "name": "Shipment Tracking (InPost, DPD, FedEx, Pocztex, DHL)",
   "content_in_root": false,
   "render_readme": true,
   "homeassistant": "2024.1.0"

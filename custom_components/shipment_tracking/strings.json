@@ -90,7 +90,8 @@
           "scan_interval": "Polling interval (minutes)",
           "archive_limit": "Delivered/archived parcels shown (0-100)",
           "notify_ready": "Notify on ready-to-pickup",
-          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx only)"
+          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx only)",
+          "ignored_shipments_csv": "Ignored shipment numbers, comma-separated (InPost only) — hides zombie records InPost's own app no longer shows"
         }
       }
     }

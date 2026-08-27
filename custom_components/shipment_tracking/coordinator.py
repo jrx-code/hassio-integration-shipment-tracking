@@ -9,11 +9,19 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
-from .api import InPostApi, InPostError, NotModified, ReauthRequired, categorize_parcels
+from .api import (
+    InPostApi,
+    InPostError,
+    NotModified,
+    ReauthRequired,
+    categorize_parcels,
+    filter_ignored,
+)
 from .pickup import group_qr_data_url, pickup_groups
 from .share import configured_aliases, entry_by_phone, friend_uuid, shareable
 from .const import (
     CONF_ARCHIVE_LIMIT,
+    CONF_IGNORED_SHIPMENTS,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     DEFAULT_ARCHIVE_LIMIT,
@@ -71,7 +79,10 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             # the parcel sensors. Keep whatever list we had.
             _LOGGER.debug("friends fetch failed: %s", err)
             friends = (self.data or {}).get("friends", [])
-        cat = categorize_parcels(parcels)
+        cat = filter_ignored(
+            categorize_parcels(parcels),
+            set(self.entry.options.get(CONF_IGNORED_SHIPMENTS, [])),
+        )
         cat["archived"].sort(
             key=lambda p: p.get("stored") or p.get("expiry") or "", reverse=True
         )

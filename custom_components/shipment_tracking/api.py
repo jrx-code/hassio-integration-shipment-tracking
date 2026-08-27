@@ -107,6 +107,22 @@ def categorize_parcels(parcels: list[dict]) -> dict[str, list[dict]]:
     return out
 
 
+def filter_ignored(cat: dict[str, list[dict]], ignored: set[str]) -> dict[str, list[dict]]:
+    """Drop shipment numbers in ``ignored`` from every bucket.
+
+    User-side hide for InPost records that ``/v4/parcels/tracked`` keeps
+    returning after the app itself stopped showing them — see
+    CONF_IGNORED_SHIPMENTS in const.py. A no-op (same dict, not copied) when
+    ``ignored`` is empty, since that's the overwhelmingly common case and
+    copying three lists on every poll for nothing would be wasteful."""
+    if not ignored:
+        return cat
+    return {
+        bucket: [p for p in rows if p.get("shipment") not in ignored]
+        for bucket, rows in cat.items()
+    }
+
+
 class InPostApi:
     """Blocking InPost client. One instance per account is fine but stateless
     except for base/UA; the auth token is passed per call by the coordinator."""

@@ -73,6 +73,7 @@ def ready_attrs(groups: list[dict]) -> list[dict]:
 def transit_attrs(parcels: list[dict]) -> list[dict]:
     return [
         {
+            "numer": p.get("shipment"),
             "nadawca": p.get("sender"),
             "paczkomat": p.get("locker"),
             "status": status_pl(p.get("status")),
@@ -120,6 +121,7 @@ def shared_in_attrs(
 def archive_attrs(parcels: list[dict], limit: int) -> list[dict]:
     return [
         {
+            "numer": p.get("shipment"),
             "nadawca": p.get("sender"),
             "paczkomat": p.get("locker"),
             "status": status_pl(p.get("status")),

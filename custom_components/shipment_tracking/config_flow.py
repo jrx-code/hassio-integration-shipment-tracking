@@ -44,6 +44,7 @@ from .const import (
     CONF_COOKIES,
     CONF_DEVICE_ID,
     CONF_EMAIL,
+    CONF_IGNORED_SHIPMENTS,
     CONF_NOTIFY,
     CONF_PHONE,
     CONF_PREFIX,
@@ -518,17 +519,30 @@ class ShipmentOptionsFlow(OptionsFlow):
     closest FedEx has to "adding a parcel", since there's no account to
     auto-discover from, and options don't need a reauth like credentials
     would. Pocztex doesn't need this — it auto-discovers, like DPD.
+
+    InPost entries additionally carry an ignored-shipments list, same comma
+    separated shape — the only way to make a zombie InPost record (still
+    returned by /v4/parcels/tracked, no longer shown in InPost Mobile — see
+    CONF_IGNORED_SHIPMENTS in const.py) stop appearing here, since InPost's
+    API has no known delete/hide endpoint to actually remove it upstream.
     """
 
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        needs_numbers = self.config_entry.data.get(CONF_CARRIER) == CARRIER_FEDEX
+        carrier = self.config_entry.data.get(CONF_CARRIER)
+        needs_numbers = carrier == CARRIER_FEDEX
+        needs_ignore_list = carrier == CARRIER_INPOST
         if user_input is not None:
             data = dict(user_input)
             if needs_numbers:
                 raw = data.pop("tracking_numbers_csv", "")
                 data[CONF_TRACKING_NUMBERS] = [
+                    n.strip() for n in raw.split(",") if n.strip()
+                ]
+            if needs_ignore_list:
+                raw = data.pop("ignored_shipments_csv", "")
+                data[CONF_IGNORED_SHIPMENTS] = [
                     n.strip() for n in raw.split(",") if n.strip()
                 ]
             return self.async_create_entry(title="", data=data)
@@ -550,5 +564,10 @@ class ShipmentOptionsFlow(OptionsFlow):
             schema[vol.Optional(
                 "tracking_numbers_csv",
                 default=", ".join(opts.get(CONF_TRACKING_NUMBERS, [])),
+            )] = str
+        if needs_ignore_list:
+            schema[vol.Optional(
+                "ignored_shipments_csv",
+                default=", ".join(opts.get(CONF_IGNORED_SHIPMENTS, [])),
             )] = str
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))

@@ -100,6 +100,20 @@ CONF_EMAIL = "email"
 # ---- FedEx options ----
 CONF_TRACKING_NUMBERS = "tracking_numbers"
 
+# ---- InPost options ----
+# A manual escape hatch for zombie records InPost's own /v4/parcels/tracked
+# keeps returning after the app itself has stopped showing them (found live
+# 2026-08-27: a parcel with operations.delete=true and an internally
+# inconsistent eventLog — a DELIVERED entry sandwiched between two
+# SENT_FROM_SOURCE_BRANCH ones — sat in "w drodze" for 10+ days while the
+# user could no longer find it in InPost Mobile at all). There is no known
+# API endpoint to delete/hide a tracked parcel (checked IFOSSA/inpost-python,
+# the only public reverse-engineered client — operations.delete is a
+# capability flag the app's own UI reads, its actual endpoint was never
+# reverse-engineered by anyone), so this integration can't clean the record
+# up server-side; it can only stop showing it locally.
+CONF_IGNORED_SHIPMENTS = "ignored_shipments"
+
 # ---- Options ----
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_ARCHIVE_LIMIT = "archive_limit"

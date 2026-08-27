@@ -36,13 +36,46 @@
       "reauth_confirm": {
         "title": "Re-authenticate",
         "description": "The session for {phone} expired. Send a new SMS code to sign in again."
+      },
+      "fedex": {
+        "title": "Add a FedEx account",
+        "description": "Official FedEx developer.fedex.com API — Client ID/Secret from a project in your FedEx developer organization, not a phone number. Add tracking numbers afterwards in Options.",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "client_id": "API Key (Client ID)",
+          "client_secret": "Secret Key (Client Secret)",
+          "account_number": "FedEx account number (optional, informational)"
+        }
+      },
+      "pocztex": {
+        "title": "Add a Pocztex account",
+        "description": "Pocztex Mobile login — email and password of an existing account (registration is app-only, this can't create one). Auto-discovers every parcel tied to the account, like DPD.",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "email": "E-mail",
+          "password": "Password"
+        }
+      },
+      "dhl": {
+        "title": "Add a DHL account",
+        "description": "An SMS code will be sent to this number (Mój DHL).",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "phone": "Phone number (9 digits)"
+        }
+      },
+      "dhl_sms": {
+        "title": "Enter the DHL SMS code",
+        "description": "Code sent to {phone}.",
+        "data": { "code": "Code" }
       }
     },
     "error": {
       "invalid_phone": "The phone number must be exactly 9 digits.",
       "cannot_connect": "Could not reach the carrier.",
       "sms_rejected": "The carrier did not accept this number.",
-      "invalid_code": "Wrong code or verification failed."
+      "invalid_code": "Wrong code or verification failed.",
+      "invalid_auth": "FedEx rejected these credentials."
     },
     "abort": {
       "already_configured": "This account is already configured.",
@@ -56,7 +89,9 @@
         "data": {
           "scan_interval": "Polling interval (minutes)",
           "archive_limit": "Delivered/archived parcels shown (0-100)",
-          "notify_ready": "Notify on ready-to-pickup"
+          "notify_ready": "Notify on ready-to-pickup",
+          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx only)",
+          "ignored_shipments_csv": "Ignored shipment numbers, comma-separated (InPost only) — hides zombie records InPost's own app no longer shows"
         }
       }
     }

@@ -62,6 +62,27 @@ research account had a single, already-delivered parcel. Any other status
 code shows up as its raw DHL string rather than a guessed translation; see
 `const.py`'s DHL section.
 
+### FedEx (per configured tracking-number list)
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor` · **W drodze** | number of active (not yet delivered) tracking numbers | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, nadawca_miasto, nadawca_kraj, usluga), `dostarczone[]` (latest N) |
+
+No auto-discovery — FedEx's official Track API is track-by-number only, so
+the tracked numbers are a manually maintained list in this entry's
+**options**, not an account. A number stays tracked (and counted) whether
+delivered or not until removed from that list.
+
+### Pocztex (per account)
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor` · **W drodze** | number of active (not yet delivered) parcels | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, postep, aktualizacja), `dostarczone[]` (latest N) |
+
+Poczta Polska's own `state` field is already a Polish label — shown as-is,
+no canonical-status mapping needed. `postep` is the raw 0-100 progress
+percentage the API returns; anything under 100 counts as active.
+
 ## 🤝 Sharing a parcel with another account (InPost only)
 
 Configure two InPost accounts and each device gains one entity per *other*
@@ -135,21 +156,39 @@ DHL:
 1.  Alias        →  optional
 2.  Phone        →  9 digits
 3.  SMS code     →  sent to that number (Mój DHL)
+
+FedEx:
+1.  Alias           →  optional
+2.  API Key          →  Client ID from a project in your FedEx developer org
+3.  Secret Key       →  Client Secret
+4.  Account number   →  optional, informational
+    (tracking numbers are added afterwards, in Options)
+
+Pocztex:
+1.  Alias        →  optional
+2.  E-mail       →  existing Pocztex Mobile account (app-only registration)
+3.  Password
 ```
 
-When a refresh token expires, Home Assistant starts a re-auth (a fresh SMS) for
-that carrier. Per-entry **options**: polling interval (default 15 min),
-archived/delivered-parcels cap, ready-to-pickup notification flag (InPost).
+When a session expires, Home Assistant starts a re-auth for that carrier —
+a fresh SMS for InPost/DPD/DHL, the password form again for Pocztex. Per-entry
+**options**: polling interval (default 15 min), archived/delivered-parcels
+cap; FedEx additionally has its tracking-number list there, InPost an
+ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app
+stopped showing — see [Entities](#-entities) above).
 
 ## 🔧 Under the hood
 
 - **Legacy SMS auth** on InPost's mobile API — no captcha, unlike the OAuth backend (Cloudflare Turnstile).
 - **DPD SMS auth** via Keycloak (`dpdsso.dpd.com.pl`, realm `DPD`) against the DPD Mobile PL backend — not the GEOPOST myDPD/email+password platform.
+- **DHL SMS auth** behind an Altcha proof-of-work captcha, solved client-side (brute-force `SHA-256(salt+n)==challenge`, a fraction of a second — not an image to click through). Session lives in httpOnly cookies set at login, refreshed with a genuine sliding 30-minute window on every poll.
+- **Pocztex email+password auth** via Keycloak authorization_code+PKCE (`idm.pocztex.pl`, realm `ppsa`) — direct password grant is disabled for this client, so it drives the same browser-less PKCE dance a login page would. Its session has a hard, non-sliding 30-minute cap: refreshing a token doesn't extend it, so this carrier re-logs-in every poll instead (the config entry stores the account password for that, not just a refresh token).
+- **FedEx** uses the official `developer.fedex.com` Track API (OAuth2 client_credentials) — the one carrier here that isn't a reverse-engineered consumer app.
 - **ETag pagination** on InPost's `/v4/parcels/tracked` — InPost (ab)uses `ETag`/`If-None-Match` as a page cursor; a naive single GET misses recent parcels.
-- Blocking `urllib` clients for both carriers, driven from Home Assistant's executor; InPost `304` responses keep the last snapshot.
+- Blocking `urllib` clients for every carrier, driven from Home Assistant's executor; InPost `304` responses keep the last snapshot.
 - Every carrier's unique_ids and device identifiers are carrier-prefixed
-  (`inpost_<phone>_...`, `dpd_<phone>_...`) so the same phone number used on
-  two carriers never collides.
+  (`inpost_<phone>_...`, `dpd_<phone>_...`, `dhl_<entry_id>_...`, ...) so the
+  same phone number used on two carriers never collides.
 
 ## ⚠️ Disclaimer
 

@@ -29,7 +29,23 @@
 - 🧩 **Almost dependency-free** — stdlib `urllib` client for both carriers; the only requirement is `segno`, for rendering InPost pickup QR codes
 - 🎯 **One framework, one entity shape per carrier** — adding a new carrier module doesn't touch the others
 
+## 🧭 How it fits together
+
+<p align="center"><img src=".github/assets/architecture.svg" alt="Five carriers, each with its own auth cycle, feed their own coordinator; all coordinators converge on one dispatch point in sensor.py; InPost fans out to four HA platforms, the other four carriers to one." width="900"></p>
+
+Every carrier authenticates and polls on its own terms — the divergence in
+the left two columns above is real, not simplified away (`Under the hood`
+below has the specifics). They all land on the same dispatch point in
+`sensor.py`, which is exactly the seam that broke twice in this project's
+history (an un-dispatched carrier crashing on the first real DPD account,
+then again for DHL) — every new carrier module has to be wired in there or
+it inherits InPost's entity shape by accident.
+
 ## 📦 Entities
+
+<p align="center"><img src=".github/assets/entities-preview.png" alt="Mock-up of the InPost 'Do odbioru' and DHL 'W drodze' sensor cards, with placeholder sender/locker/code data — not a real account." width="700"></p>
+
+<p align="center"><sub>Illustrative mock-up — placeholder senders and codes, not a real account.</sub></p>
 
 ### InPost (per account)
 

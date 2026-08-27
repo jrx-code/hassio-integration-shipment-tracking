@@ -1,0 +1,132 @@
+<svg width="1000" height="420" viewBox="0 0 1000 420" xmlns="http://www.w3.org/2000/svg" role="img"
+     aria-label="Five carrier APIs, each with its own auth mechanism, feed their own coordinator; all coordinators converge on one dispatch point in sensor.py that must recognize every carrier; InPost fans out to four platforms, the other four carriers fan out to one.">
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0,0 L10,5 L0,10 z" fill="#6e7681"/>
+    </marker>
+  </defs>
+
+  <style>
+    text { font-family: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+    .node-title { font-size: 14px; font-weight: 600; fill: #e6edf3; }
+    .node-sub   { font-size: 11px; fill: #8b949e; }
+    .node-bg    { fill: #161b22; stroke: #30363d; stroke-width: 1; }
+    .flow-line  { stroke: #6e7681; stroke-width: 1.4; fill: none; marker-end: url(#arrow); }
+    .caption    { font-size: 11.5px; fill: #57606a; }
+    .caption-em { font-size: 11.5px; fill: #57606a; font-weight: 700; }
+    .col-label  { font-size: 10.5px; fill: #57606a; letter-spacing: .06em; }
+  </style>
+
+  <!-- column headers -->
+  <text x="20"  y="14" class="col-label">CARRIER API</text>
+  <text x="290" y="14" class="col-label">COORDINATOR (poll interval, own auth cycle)</text>
+  <text x="820" y="14" class="col-label">HA PLATFORMS</text>
+
+  <!-- ===== Column A: carrier sources ===== -->
+  <!-- InPost -->
+  <g>
+    <rect x="20" y="24" width="190" height="56" rx="6" class="node-bg"/>
+    <rect x="20" y="24" width="4" height="56" rx="2" fill="#FFCD00"/>
+    <text x="34" y="47" class="node-title">InPost</text>
+    <text x="34" y="63" class="node-sub">SMS + legacy token</text>
+  </g>
+  <!-- DPD -->
+  <g>
+    <rect x="20" y="100" width="190" height="56" rx="6" class="node-bg"/>
+    <rect x="20" y="100" width="4" height="56" rx="2" fill="#DC0032"/>
+    <text x="34" y="123" class="node-title">DPD</text>
+    <text x="34" y="139" class="node-sub">SMS + Keycloak (non-expiring)</text>
+  </g>
+  <!-- FedEx -->
+  <g>
+    <rect x="20" y="176" width="190" height="56" rx="6" class="node-bg"/>
+    <rect x="20" y="176" width="4" height="56" rx="2" fill="#4D148C"/>
+    <text x="34" y="199" class="node-title">FedEx</text>
+    <text x="34" y="215" class="node-sub">OAuth2 client_credentials (official)</text>
+  </g>
+  <!-- Pocztex -->
+  <g>
+    <rect x="20" y="252" width="190" height="56" rx="6" class="node-bg"/>
+    <rect x="20" y="252" width="4" height="56" rx="2" fill="#C8102E"/>
+    <text x="34" y="275" class="node-title">Pocztex</text>
+    <text x="34" y="291" class="node-sub">Password, re-login every poll</text>
+  </g>
+  <!-- DHL -->
+  <g>
+    <rect x="20" y="328" width="190" height="56" rx="6" class="node-bg"/>
+    <rect x="20" y="328" width="4" height="56" rx="2" fill="#D40511"/>
+    <text x="34" y="351" class="node-title">DHL</text>
+    <text x="34" y="367" class="node-sub">SMS + session cookie</text>
+  </g>
+
+  <!-- ===== Column B: coordinators (1:1 with sources) ===== -->
+  <g>
+    <rect x="290" y="24" width="190" height="56" rx="6" class="node-bg"/>
+    <text x="304" y="47" class="node-title">InPostCoordinator</text>
+    <text x="304" y="63" class="node-sub">refresh() per poll</text>
+  </g>
+  <g>
+    <rect x="290" y="100" width="190" height="56" rx="6" class="node-bg"/>
+    <text x="304" y="123" class="node-title">DpdCoordinator</text>
+    <text x="304" y="139" class="node-sub">refresh() per poll</text>
+  </g>
+  <g>
+    <rect x="290" y="176" width="190" height="56" rx="6" class="node-bg"/>
+    <text x="304" y="199" class="node-title">FedexCoordinator</text>
+    <text x="304" y="215" class="node-sub">token cached to expiry</text>
+  </g>
+  <g>
+    <rect x="290" y="252" width="190" height="56" rx="6" class="node-bg"/>
+    <text x="304" y="275" class="node-title">PocztexCoordinator</text>
+    <text x="304" y="291" class="node-sub">full login() per poll</text>
+  </g>
+  <g>
+    <rect x="290" y="328" width="190" height="56" rx="6" class="node-bg"/>
+    <text x="304" y="351" class="node-title">DhlCoordinator</text>
+    <text x="304" y="367" class="node-sub">refresh_session() per poll</text>
+  </g>
+
+  <!-- A -> B, straight, same row -->
+  <line x1="210" y1="52"  x2="288" y2="52"  class="flow-line"/>
+  <line x1="210" y1="128" x2="288" y2="128" class="flow-line"/>
+  <line x1="210" y1="204" x2="288" y2="204" class="flow-line"/>
+  <line x1="210" y1="280" x2="288" y2="280" class="flow-line"/>
+  <line x1="210" y1="356" x2="288" y2="356" class="flow-line"/>
+
+  <!-- ===== Convergence: sensor.py dispatch ===== -->
+  <rect x="560" y="164" width="200" height="80" rx="6" fill="#161b22" stroke="#e6edf3" stroke-width="1.3"/>
+  <text x="660" y="196" text-anchor="middle" class="node-title">sensor.py</text>
+  <text x="660" y="212" text-anchor="middle" class="node-sub">carrier_of(entry) dispatch</text>
+  <text x="660" y="230" text-anchor="middle" class="node-sub" font-style="italic">every branch must return —</text>
+  <text x="660" y="243" text-anchor="middle" class="node-sub" font-style="italic">a fall-through crashed on DPD, then DHL</text>
+
+  <!-- B -> convergence, curved fan-in -->
+  <path d="M480,52  C520,52  520,204 558,204"  class="flow-line"/>
+  <path d="M480,128 C510,128 520,204 558,204"  class="flow-line"/>
+  <line  x1="480" y1="204" x2="558" y2="204"                class="flow-line"/>
+  <path d="M480,280 C510,280 520,204 558,204"  class="flow-line"/>
+  <path d="M480,356 C520,356 520,204 558,204"  class="flow-line"/>
+
+  <!-- ===== Column C: entity platforms ===== -->
+  <g>
+    <rect x="820" y="90" width="160" height="90" rx="6" class="node-bg"/>
+    <rect x="820" y="90" width="4" height="90" rx="2" fill="#FFCD00"/>
+    <text x="834" y="113" class="node-title">InPost device</text>
+    <text x="834" y="130" class="node-sub">sensor · image</text>
+    <text x="834" y="146" class="node-sub">button · switch</text>
+    <text x="834" y="163" class="node-sub" font-style="italic">QR + app-to-app share</text>
+  </g>
+  <g>
+    <rect x="820" y="230" width="160" height="90" rx="6" class="node-bg"/>
+    <rect x="820" y="230" width="4" height="90" rx="2" fill="#6e7681"/>
+    <text x="834" y="253" class="node-title">Other 4 carriers</text>
+    <text x="834" y="270" class="node-sub">sensor only</text>
+    <text x="834" y="286" class="node-sub">(w drodze / dostarczone</text>
+    <text x="834" y="302" class="node-sub">in attributes)</text>
+  </g>
+
+  <path d="M760,204 C790,204 790,135 818,135" class="flow-line"/>
+  <path d="M760,204 C790,204 790,275 818,275" class="flow-line"/>
+
+  <text x="500" y="405" text-anchor="middle" class="caption">Five independent auth cycles, one shared dispatch, two entity shapes — <tspan class="caption-em">one framework, one entity shape per carrier</tspan></text>
+</svg>

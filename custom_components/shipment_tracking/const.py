@@ -423,14 +423,24 @@ def pocztex_is_active(progress_percentage) -> bool:
 # without ever sending it). So the DHL carrier module persists cookies,
 # not a token string, across polls (api_dhl.py/coordinator_dhl.py).
 #
-# ANSWERED 2026-08-28, the hard way: a serialized-then-restored cookiejar
-# does NOT survive a restart if it is the LOGIN-time one. The whole set
-# rotates — ``access-token`` is a 30-minute JWT, and ``access-remember``,
-# the half that looks like the durable "remember me" credential, is spent
-# by the first successful /auth/refresh just the same (replayed live, 401
-# both with and without the expired access-token alongside it). A restored
-# jar works only if it is the jar the last poll ended with, so the
-# coordinator now writes the jar back to entry.data on every poll.
+# PARTLY ANSWERED 2026-08-28. What is PROVEN: a login-time jar that is ~30
+# HOURS old is rejected. Both accounts came up "DHL session expired" after
+# the first restart, the stored ``access-token`` was a JWT whose ``exp`` sat
+# at login + 30 min (long past), and replaying that stored set against
+# /auth/refresh returned 401 — with AND without the expired access-token
+# alongside it, so ``access-remember`` alone did not carry it either.
+#
+# What is NOT proven, and was briefly written here as if it were: WHY. The
+# 401 is equally consistent with (a) the set rotating and the old one being
+# spent, and (b) it simply having aged out. Evidence for (b) arrived the same
+# evening: after a fresh SMS reauth at 18:54/18:58 the entries survived a
+# 19:05 HA restart on the still-login-time jar, ~11 minutes old. So "spent by
+# the first refresh" is wrong as stated — an hours-old jar dies, a
+# minutes-old one does not, and the boundary is unmeasured.
+#
+# Either way the fix is the same and is what matters: keep the STORED jar
+# fresh, so a restart restores a jar that is minutes old rather than hours.
+# The coordinator writes it back to entry.data on every poll.
 DHL_BASE = "https://mojdhl.pl/api/dhl/public"
 DHL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 

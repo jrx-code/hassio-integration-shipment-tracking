@@ -17,9 +17,18 @@ cookies ``BIGipServer…``, ``TS…``, ``access-token``, ``access-signature``,
 ``exp`` sat at login + 30 min, i.e. ~30 hours in the past, and replaying
 that whole set against /auth/refresh returned 401. Dropping the expired
 ``access-token`` and replaying the rest (``access-remember`` included)
-returned 401 as well, so the durable half of the credential rotates too:
-what refresh_session() consumes is the CURRENT jar, and the login-time one
-is spent the moment the first refresh succeeds.
+returned 401 as well, so ``access-remember`` alone does not carry an aged
+session either.
+
+CORRECTED AGAIN the same evening, before the claim could harden into
+folklore: the first draft of this comment said the login-time jar is "spent
+the moment the first refresh succeeds". That is NOT established. After a
+fresh SMS reauth at 18:54 the entries survived a 19:05 HA restart on a jar
+that was still the login-time one, ~11 minutes old. An hours-old jar dies,
+a minutes-old one survives; where the boundary sits, and whether the cause
+is rotation or plain ageing, is UNMEASURED. The fix is the same either way
+and that is what matters: keep the STORED jar fresh, so a restart restores
+one that is minutes old rather than hours.
 
 So the jar is now persisted back to entry.data whenever it changes, which
 in practice is every poll. That write is only safe because

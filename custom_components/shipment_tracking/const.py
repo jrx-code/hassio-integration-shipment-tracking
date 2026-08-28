@@ -434,40 +434,120 @@ def pocztex_is_active(progress_percentage) -> bool:
 DHL_BASE = "https://mojdhl.pl/api/dhl/public"
 DHL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 
-# Canonical status buckets -> Polish labels. Only TT_DOR (delivered) has
-# been seen live — the account used for research had exactly one parcel,
-# already delivered. Deliberately NOT guessing the rest of DHL's status
-# vocabulary from DPD/InPost's (see const.py module docstring elsewhere in
-# this repo for why that's a bad idea) — unrecognized codes fall back to
-# showing the raw code, not a wrong translation.
+# STATUS VOCABULARY, sourced 2026-08-28 — read out of the Mój DHL web app's
+# own shipped bundle, not guessed and not translated by hand.
+#
+# The shipment object carries TWO status fields, and the useful one is not
+# the obvious one:
+#   * ``status`` — an internal code, ``TT_DOR`` / ``TT_LK`` / ``TT_MAG`` …
+#     21 of them exist. Downloading every chunk the Next.js build manifest
+#     lists (20 files, buildId Yj46M5Uq4I-kB_e3pWByW) and grepping all of
+#     them shows these codes appear ONLY as a bare TypeScript enum
+#     (``et.TT_DOR="TT_DOR"``). Nothing anywhere maps them to text — DHL's
+#     own front end never translates them, so neither can we.
+#   * ``menuTimelineLabel.status`` — a semantic key, ``"Delivered"``,
+#     ``"DeliveredToLocker"``, ``"Route"`` … and THAT one has a full Polish
+#     dictionary in the bundle (chunk 5820). This is what the app renders.
+#
+# So the label comes from the timeline key, and the raw TT_ code is kept only
+# for diagnostics. Every Polish string below is copied verbatim from that
+# dictionary — DHL's own wording, so the entity says what the app says.
+# ``menuTimelineLabel.label`` is a different vocabulary (date captions:
+# ReceiptDate, EstimatedDeliveryDate …) — deliberately not mixed in here.
 DHL_CANONICAL_PL = {
-    "delivered": "Dostarczona",
+    "created": "W przygotowaniu",
+    "in_transport": "W transporcie",
+    "handed_out_for_delivery": "W doręczeniu",
+    "waiting_for_pickup": "Do odbioru",
+    "delivered": "Doręczona",
+    "returned": "Zwrócona do nadawcy",
+    "cancelled": "Anulowana",
+    "exception": "Problem",
     "unknown": "—",
 }
 
-DHL_TERMINAL = {"delivered"}
+DHL_TERMINAL = {"delivered", "returned", "cancelled"}
 
+# menuTimelineLabel.status -> (canonical bucket, DHL's own Polish label).
+_DHL_TIMELINE = {
+    "ShipmentInPreparation": ("created", "Przesyłka w przygotowaniu"),
+    "WaitingForCourierPickup": ("created", "Przesyłka czeka na odbiór kuriera"),
+    "PostedAtPoint": ("in_transport", "Nadana w punkcie"),
+    "PickedUpByCourier": ("in_transport", "Odebrana przez kuriera"),
+    "Route": ("in_transport", "W drodze"),
+    "DeliveryToPoint": ("in_transport", "W drodze do POP"),
+    "DeliveryToLocker": ("in_transport", "W drodze do automatu"),
+    "Redirected": ("in_transport", "Przesyłka przekierowana"),
+    "RedirectedToPoint": ("in_transport", "Przekierowana do punktu"),
+    "Delivery": ("handed_out_for_delivery", "Doręczenie"),
+    # Handed over to a locker/point is NOT the end of the road for whoever is
+    # waiting for it — it is exactly the "go and collect it" state, same
+    # bucket InPost's READY_TO_PICKUP lands in.
+    "DeliveredToPoint": ("waiting_for_pickup", "Doręczona do punktu"),
+    "DeliveredToLocker": ("waiting_for_pickup", "Doręczona do automatu"),
+    "Delivered": ("delivered", "Doręczona"),
+    "RetrievedFromPoint": ("delivered", "Odebrana z punktu"),
+    "RetrievedFromLocker": ("delivered", "Odebrana z automatu"),
+    "Refusal": ("returned", "Odmowa przyjęcia"),
+    "ParcelReturnsToSender": ("returned", "Paczka wraca do Nadawcy"),
+    "ParcelReturnedToSender": ("returned", "Paczka wróciła do Nadawcy"),
+    "Resignated": ("cancelled", "Wycofanie przesyłki przez Nadawcę"),
+    "Disposed": ("cancelled", "Przesyłka zutylizowana"),
+    # Trouble states stay ACTIVE on purpose — a parcel that is late, refused
+    # at the door or lost is precisely the one that must not quietly vanish
+    # from the panel into the archive.
+    "UnsuccessfulAttemptAtDelivery": ("exception", "Nieudana próba doręczenia"),
+    "SecondUnsuccessfulAttemptAtDelivery": (
+        "exception", "Druga nieudana próba doręczenia"),
+    "DeliveryDelay": ("exception", "Opóźnienie dostawy"),
+    "DeliveryProblem": ("exception", "Mamy problem z doręczeniem Twojej przesyłki"),
+    "WaitingForShipperDecision": ("exception", "Oczekujemy na decyzje nadawcy"),
+    "ContactDHL": ("exception", "Skontaktuj się z DHL"),
+    "Lost": ("exception", "Przesyłka zaginęła"),
+}
+
+# Fallback for a shipment with no menuTimelineLabel at all. TT_DOR is the one
+# code confirmed live (2026-08-26, "Doręczona" in the UI); the rest have no
+# known meaning, so they stay "unknown" rather than become a guess.
 _DHL_STATUS_EXACT = {
-    "TT_DOR": "delivered",  # verified live 2026-08-26 — "Doręczona" in the UI
+    "TT_DOR": "delivered",
 }
 
 
-def dhl_canonical(raw: str) -> str:
-    """Map a raw DHL status code to a canonical bucket. Only one code is
-    actually known (see _DHL_STATUS_EXACT); anything else is "unknown" on
-    purpose rather than a guessed keyword match."""
+def dhl_canonical(raw: str, timeline_status: str | None = None) -> str:
+    """Canonical bucket for one shipment.
+
+    ``timeline_status`` is ``menuTimelineLabel.status`` and wins when known —
+    it is the field DHL's own app renders. ``raw`` is the internal TT_ code,
+    used only as a fallback and only for the single code confirmed live.
+    """
+    if timeline_status:
+        znane = _DHL_TIMELINE.get(timeline_status.strip())
+        if znane:
+            return znane[0]
     return _DHL_STATUS_EXACT.get((raw or "").strip().upper(), "unknown")
 
 
-def dhl_status_pl(raw: str) -> str:
+def dhl_status_pl(raw: str, timeline_status: str | None = None) -> str:
+    """Polish label, in DHL's own wording where we have it.
+
+    An unknown timeline key falls back to showing that key, and an unknown
+    TT_ code to showing the code — a visible "I do not know this one" beats a
+    plausible-looking wrong translation.
+    """
+    if timeline_status:
+        znane = _DHL_TIMELINE.get(timeline_status.strip())
+        if znane:
+            return znane[1]
+        return timeline_status.strip()
     bucket = dhl_canonical(raw)
     if bucket == "unknown":
         return raw or "—"
     return DHL_CANONICAL_PL.get(bucket, raw or "—")
 
 
-def dhl_is_active(raw: str) -> bool:
-    """Unknown codes default to "active" (not terminal) — safer to show an
+def dhl_is_active(raw: str, timeline_status: str | None = None) -> bool:
+    """Unknown statuses default to "active" (not terminal) — safer to show an
     unrecognized parcel as still-tracked than to silently drop it into
     archive on a status this integration has never seen."""
-    return dhl_canonical(raw) not in DHL_TERMINAL
+    return dhl_canonical(raw, timeline_status) not in DHL_TERMINAL

@@ -66,14 +66,18 @@ def normalize_parcel(p: dict, *, shared: bool = False) -> dict:
     shape used by entities."""
     raw = p.get("status") or ""
     timeline = p.get("menuTimelineLabel") or {}
+    # menuTimelineLabel.status is the field DHL's own app renders; the TT_ code
+    # in "status" is never translated anywhere in their bundle. See const.py.
+    tl = timeline.get("status")
     return {
         "number": p.get("shipmentNumber"),
         "sender": p.get("sender"),
-        "status": dhl_status_pl(raw),
+        "status": dhl_status_pl(raw, tl),
         "status_raw": raw,
-        "canonical": dhl_canonical(raw),
+        "status_timeline": tl,
+        "canonical": dhl_canonical(raw, tl),
         "updated": timeline.get("dateUtc"),
-        "active": dhl_is_active(raw),
+        "active": dhl_is_active(raw, tl),
         "package_type": p.get("packageType"),
         "shared": shared,
     }

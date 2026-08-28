@@ -97,7 +97,10 @@ def test_normalize_parcel_maps_known_status():
     assert row["number"] == "30413196282"
     assert row["sender"] == "Amazon EU SARL"
     assert row["status_raw"] == "TT_DOR"
-    assert row["status"] == "Dostarczona"
+    # DHL's own wording, from menuTimelineLabel.status ("Delivered"), not the
+    # TT_DOR code — their bundle never translates TT_ codes at all.
+    assert row["status_timeline"] == "Delivered"
+    assert row["status"] == "Doręczona"
     assert row["canonical"] == "delivered"
     assert row["active"] is False
     assert row["updated"] == "2026-08-26T09:54:29Z"
@@ -115,6 +118,62 @@ def test_unknown_status_falls_back_to_raw_not_a_guess():
     assert const.dhl_canonical("TT_SOMETHING_NEW") == "unknown"
     assert const.dhl_status_pl("TT_SOMETHING_NEW") == "TT_SOMETHING_NEW"
     assert const.dhl_is_active("TT_SOMETHING_NEW") is True
+
+
+# ------------------- status vocabulary from DHL's own bundle -------------------
+# menuTimelineLabel.status keys and their Polish labels were read out of the Mój
+# DHL web app's shipped chunks (2026-08-28). The TT_ codes are NOT translated
+# anywhere in that bundle, which is why the timeline key is what we key on.
+
+
+def test_timeline_status_wins_over_the_tt_code():
+    """TT_LK was the live example that used to leak a raw code into the panel."""
+    const = sys.modules["const"]
+    assert const.dhl_status_pl("TT_LK", "Route") == "W drodze"
+    assert const.dhl_canonical("TT_LK", "Route") == "in_transport"
+    assert const.dhl_is_active("TT_LK", "Route") is True
+    # …and without the timeline the unknown code still refuses to guess.
+    assert const.dhl_status_pl("TT_LK") == "TT_LK"
+
+
+def test_handed_to_a_locker_is_waiting_for_pickup_not_delivered():
+    """The whole point of the tile's "do odbioru" phase: a parcel sitting in a
+    locker is not finished, it is waiting for someone to walk over."""
+    const = sys.modules["const"]
+    for key in ("DeliveredToLocker", "DeliveredToPoint"):
+        assert const.dhl_canonical("", key) == "waiting_for_pickup"
+        assert const.dhl_is_active("", key) is True
+    assert const.dhl_status_pl("", "DeliveredToLocker") == "Doręczona do automatu"
+
+
+def test_collected_and_returned_are_terminal():
+    const = sys.modules["const"]
+    for key in ("Delivered", "RetrievedFromLocker", "RetrievedFromPoint",
+                "ParcelReturnedToSender", "Resignated", "Disposed"):
+        assert const.dhl_is_active("", key) is False, key
+
+
+def test_trouble_states_stay_visible():
+    """A late, refused or lost parcel must not slip into the archive."""
+    const = sys.modules["const"]
+    for key in ("DeliveryDelay", "UnsuccessfulAttemptAtDelivery",
+                "SecondUnsuccessfulAttemptAtDelivery", "Lost",
+                "DeliveryProblem", "WaitingForShipperDecision", "ContactDHL"):
+        assert const.dhl_canonical("", key) == "exception", key
+        assert const.dhl_is_active("", key) is True, key
+
+
+def test_unknown_timeline_key_shows_the_key_not_a_guess():
+    const = sys.modules["const"]
+    assert const.dhl_status_pl("TT_DOR", "SomeBrandNewState") == "SomeBrandNewState"
+    assert const.dhl_canonical("TT_DOR", "SomeBrandNewState") == "delivered"
+
+
+def test_every_label_has_a_known_bucket():
+    const = sys.modules["const"]
+    for key, (bucket, label) in const._DHL_TIMELINE.items():
+        assert bucket in const.DHL_CANONICAL_PL, (key, bucket)
+        assert label and label.strip() == label, key
 
 
 def test_prefix_has_no_plus_sign():

@@ -42,8 +42,14 @@ def _load_coordinator_dhl():
         def __class_getitem__(cls, item):
             return cls
 
+    class _State:
+        """Stand-in for ConfigEntryState — identity is all the code needs."""
+
+        LOADED = "loaded"
+        SETUP_IN_PROGRESS = "setup_in_progress"
+
     _stub("homeassistant")
-    _stub("homeassistant.config_entries", ConfigEntry=object)
+    _stub("homeassistant.config_entries", ConfigEntry=object, ConfigEntryState=_State)
     _stub("homeassistant.core", HomeAssistant=object, callback=lambda f: f)
     _stub("homeassistant.exceptions", ConfigEntryAuthFailed=Exception)
     _stub("homeassistant.helpers")
@@ -118,3 +124,86 @@ def test_prefix_has_no_plus_sign():
     src = (_PKG_DIR / "api_dhl.py").read_text()
     assert '"prefix": "48"' in src
     assert '"prefix": "+48"' not in src
+
+
+# --------------------- rotating cookie jar, persisted ---------------------
+# The first restart after DHL went live came up "DHL session expired" on both
+# accounts: entry.data still held the LOGIN-time jar, and DHL rotates the whole
+# set on every /auth/refresh — replaying the stored one live returned 401 with
+# and without its expired access-token. These guard the fix (persist the jar
+# whenever it moves) and the one condition that makes the write safe.
+
+
+class _FakeEntry:
+    def __init__(self, cookies, state):
+        self.data = {"device_id": "dev-1", "cookies": cookies}
+        self.options = {}
+        self.entry_id = "e1"
+        self.state = state
+
+
+class _FakeConfigEntries:
+    def __init__(self):
+        self.updates = []
+
+    def async_update_entry(self, entry, **kwargs):
+        self.updates.append(kwargs)
+        entry.data = kwargs.get("data", entry.data)
+
+
+class _FakeHass:
+    def __init__(self):
+        self.config_entries = _FakeConfigEntries()
+
+
+def _coordinator(stored, jar, state):
+    """A DhlCoordinator with __init__ bypassed — only _persist_cookies is
+    under test, and the real __init__ wants a live DataUpdateCoordinator."""
+    c = _coord.DhlCoordinator.__new__(_coord.DhlCoordinator)
+    c.hass = _FakeHass()
+    c.entry = _FakeEntry(stored, state)
+    api = _coord.DhlApi()
+    api.import_cookies(jar)
+    c._api = api
+    return c
+
+
+_STARY = [{"name": "access-remember", "value": "old", "domain": "mojdhl.pl",
+           "path": "/", "secure": True}]
+_NOWY = [{"name": "access-remember", "value": "new", "domain": "mojdhl.pl",
+          "path": "/", "secure": True}]
+
+
+def test_rotated_jar_is_written_back_to_entry_data():
+    loaded = _coord.ConfigEntryState.LOADED
+    c = _coordinator(_STARY, _NOWY, loaded)
+    c._persist_cookies()
+    assert len(c.hass.config_entries.updates) == 1
+    zapisane = c.hass.config_entries.updates[0]["data"]["cookies"]
+    assert [x["value"] for x in zapisane] == ["new"]
+    # device_id must survive the merge — entry.data is not replaced wholesale.
+    assert c.hass.config_entries.updates[0]["data"]["device_id"] == "dev-1"
+
+
+def test_unchanged_jar_writes_nothing():
+    loaded = _coord.ConfigEntryState.LOADED
+    c = _coordinator(_STARY, _STARY, loaded)
+    c._persist_cookies()
+    assert c.hass.config_entries.updates == []
+
+
+def test_no_write_while_the_entry_is_still_setting_up():
+    """Persisting from the first refresh is what left DPD's coordinator empty
+    until a reload (coordinator_dpd.py) — this path stays closed."""
+    setting_up = _coord.ConfigEntryState.SETUP_IN_PROGRESS
+    c = _coordinator(_STARY, _NOWY, setting_up)
+    c._persist_cookies()
+    assert c.hass.config_entries.updates == []
+
+
+def test_reload_listener_ignores_data_only_updates():
+    """The cookie write happens every poll; _async_reload_on_update must not
+    turn that into a reload every poll."""
+    src = (_PKG_DIR / "__init__.py").read_text()
+    assert 'getattr(entry, "runtime_data", None), "setup_options"' in src
+    assert "coordinator.setup_options = dict(entry.options)" in src

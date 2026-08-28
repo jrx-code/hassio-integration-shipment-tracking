@@ -1,12 +1,16 @@
 {
   "domain": "shipment_tracking",
   "name": "Śledzenie przesyłek",
-  "codeowners": ["@jrx-code"],
+  "codeowners": [
+    "@jrx-code"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/jrx-code/hassio-integration-shipment-tracking",
   "integration_type": "hub",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/jrx-code/hassio-integration-shipment-tracking/issues",
-  "requirements": ["segno==1.6.6"],
-  "version": "2.5.1"
+  "requirements": [
+    "segno==1.6.6"
+  ],
+  "version": "2.6.0"
 }

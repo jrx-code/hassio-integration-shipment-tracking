@@ -422,9 +422,15 @@ def pocztex_is_active(progress_percentage) -> bool:
 # actual consumer, if any, wasn't identified; refresh_session() works
 # without ever sending it). So the DHL carrier module persists cookies,
 # not a token string, across polls (api_dhl.py/coordinator_dhl.py).
-# UNTESTED: whether a serialized-then-restored cookiejar survives an actual
-# HA restart the way an in-memory one survives repeated polls within one
-# process — only the latter was verified live.
+#
+# ANSWERED 2026-08-28, the hard way: a serialized-then-restored cookiejar
+# does NOT survive a restart if it is the LOGIN-time one. The whole set
+# rotates — ``access-token`` is a 30-minute JWT, and ``access-remember``,
+# the half that looks like the durable "remember me" credential, is spent
+# by the first successful /auth/refresh just the same (replayed live, 401
+# both with and without the expired access-token alongside it). A restored
+# jar works only if it is the jar the last poll ended with, so the
+# coordinator now writes the jar back to entry.data on every poll.
 DHL_BASE = "https://mojdhl.pl/api/dhl/public"
 DHL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 

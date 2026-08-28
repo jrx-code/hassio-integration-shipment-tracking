@@ -63,6 +63,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
         coordinator = InPostCoordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
+    # Snapshot of the options this setup ran with — _async_reload_on_update
+    # compares against it to tell an options edit from a credential write.
+    coordinator.setup_options = dict(entry.options)
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
 
@@ -116,7 +119,24 @@ async def async_remove_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) ->
 
 
 async def _async_reload_on_update(hass: HomeAssistant, entry: ShipmentConfigEntry) -> None:
-    """Reload the entry when options change."""
+    """Reload the entry when its OPTIONS change.
+
+    The listener fires on every ``async_update_entry``, and entry.data moves on
+    its own now: DHL's session lives in cookies the server rotates on each
+    refresh, so its coordinator writes the current jar back to entry.data every
+    poll (see coordinator_dhl.py). Reloading on those would restart the
+    integration every ~15 minutes, which is the reload storm this file's
+    carriers have already been bitten by twice.
+
+    Reauth does not depend on this path — the flow ends in
+    ``async_update_reload_and_abort``, which reloads explicitly.
+    """
+    # runtime_data itself raises AttributeError on an entry whose setup failed
+    # (both DHL entries sat in setup_error the day this was written), so reach
+    # for it defensively — an unknown baseline means "reload", the old default.
+    previous = getattr(getattr(entry, "runtime_data", None), "setup_options", None)
+    if previous is not None and previous == dict(entry.options):
+        return
     await hass.config_entries.async_reload(entry.entry_id)
 
 

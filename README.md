@@ -27,6 +27,7 @@
 - 🤝 **App-to-app sharing** (InPost only) — hand a ready parcel to another configured InPost account (a paired "friend"), on a button press or automatically
 - 🔑 **Official mobile/web auth, no scraping** — InPost/DPD/DHL use SMS login (DHL's stores a session-cookie snapshot instead of a refresh token, verified to survive a real sliding 30-min window). Pocztex is the exception: its Keycloak session has a hard 30-minute cap that no amount of refreshing can extend, so its config entry stores the account password and re-logs-in every poll instead
 - 🧩 **Almost dependency-free** — stdlib `urllib` client for both carriers; the only requirement is `segno`, for rendering InPost pickup QR codes
+- 🏷️ **Every sensor wears its carrier's own logo** — Home Assistant allows one brand image per integration, so all five carriers would otherwise share one generic parcel box; each carrier's sensors carry the carrier badge as `entity_picture` instead
 - 🎯 **One framework, one entity shape per carrier** — adding a new carrier module doesn't touch the others
 
 ## 🧭 How it fits together
@@ -202,6 +203,11 @@ stopped showing — see [Entities](#-entities) above).
 - **FedEx** uses the official `developer.fedex.com` Track API (OAuth2 client_credentials) — the one carrier here that isn't a reverse-engineered consumer app.
 - **ETag pagination** on InPost's `/v4/parcels/tracked` — InPost (ab)uses `ETag`/`If-None-Match` as a page cursor; a naive single GET misses recent parcels.
 - Blocking `urllib` clients for every carrier, driven from Home Assistant's executor; InPost `304` responses keep the last snapshot.
+- **Carrier badges** are 256² PNGs served by the integration itself at
+  `/shipment_tracking/logo/<carrier>.png` and pointed at by `entity_picture`.
+  The frontend crops a picture to a circle, so each badge puts the mark on the
+  carrier's own colour with the mark inscribed in that circle — a bare wordmark
+  would be cut down to its middle stripe.
 - Every carrier's unique_ids and device identifiers are carrier-prefixed
   (`inpost_<phone>_...`, `dpd_<phone>_...`, `dhl_<entry_id>_...`, ...) so the
   same phone number used on two carriers never collides.

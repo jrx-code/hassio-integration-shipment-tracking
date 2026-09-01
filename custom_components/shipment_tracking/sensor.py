@@ -19,7 +19,13 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ShipmentConfigEntry, carrier_of
-from .const import CARRIER_DHL, CARRIER_DPD, CARRIER_FEDEX, CARRIER_POCZTEX
+from .const import (
+    CARRIER_DHL,
+    CARRIER_DPD,
+    CARRIER_FEDEX,
+    CARRIER_INPOST,
+    CARRIER_POCZTEX,
+)
 from .entity import (
     InPostEntity,
     archive_attrs,
@@ -28,11 +34,18 @@ from .entity import (
     shared_out_attrs,
     transit_attrs,
 )
+from .logos import logo_url
 from .sensor_dhl import async_setup_dhl_sensors
 from .sensor_dpd import async_setup_dpd_sensors
 from .sensor_fedex import async_setup_fedex_sensors
 from .sensor_pocztex import async_setup_pocztex_sensors
 from .share import own_only, shared_in, shared_out
+
+# Every InPost sensor wears the carrier's badge instead of a generic mdi glyph —
+# see logos.py for why this cannot be done on the device instead. The mdi icons
+# stay as the fallback: HA falls back to `icon` whenever entity_picture is None,
+# which is what happens if the badge for a carrier is ever missing.
+_ZNAK = logo_url(CARRIER_INPOST)
 
 
 async def async_setup_entry(
@@ -74,6 +87,7 @@ class InPostReadySensor(InPostEntity, SensorEntity):
     in-transit counter next door is the opposite — own parcels only.
     """
 
+    _attr_entity_picture = _ZNAK
     _attr_name = "Do odbioru"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
@@ -111,6 +125,7 @@ class InPostCountSensor(InPostEntity, SensorEntity):
     show six parcels on both accounts when the household really has six in total.
     """
 
+    _attr_entity_picture = _ZNAK
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
 
@@ -146,6 +161,7 @@ class InPostSharedSensor(InPostEntity, SensorEntity):
     but it is kept in ``moje_udostepnione[]`` so a card can show both.
     """
 
+    _attr_entity_picture = _ZNAK
     _attr_name = "Udostępnione"
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
@@ -176,6 +192,7 @@ class InPostSharedSensor(InPostEntity, SensorEntity):
 class InPostArchiveSensor(InPostEntity, SensorEntity):
     """Archived parcel count + latest N in attributes (capped by option)."""
 
+    _attr_entity_picture = _ZNAK
     _attr_name = "Archiwum"
     _attr_native_unit_of_measurement = "szt."
     _attr_icon = "mdi:archive"

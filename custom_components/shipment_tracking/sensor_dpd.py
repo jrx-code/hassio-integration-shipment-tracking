@@ -13,6 +13,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
+    CARRIER_DPD,
     CONF_ALIAS,
     CONF_ARCHIVE_LIMIT,
     CONF_PHONE,
@@ -20,6 +21,7 @@ from .const import (
     DOMAIN,
 )
 from .coordinator_dpd import DpdCoordinator
+from .logos import logo_url
 
 
 async def async_setup_dpd_sensors(
@@ -63,6 +65,7 @@ class DpdActiveSensor(CoordinatorEntity[DpdCoordinator], SensorEntity):
     _attr_has_entity_name = True
     _attr_name = "W drodze"
     _attr_icon = "mdi:truck-delivery"
+    _attr_entity_picture = logo_url(CARRIER_DPD)
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
 

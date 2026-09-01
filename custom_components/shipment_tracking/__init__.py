@@ -23,6 +23,7 @@ from .coordinator_dhl import DhlCoordinator
 from .coordinator_dpd import DpdCoordinator
 from .coordinator_fedex import FedexCoordinator
 from .coordinator_pocztex import PocztexCoordinator
+from .logos import async_register as async_register_logos
 from .share import auto_share_unique_id, peer_entries, share_unique_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -48,6 +49,9 @@ def carrier_of(entry: ConfigEntry) -> str:
 async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> bool:
     """Set up one carrier account from a config entry."""
     carrier = carrier_of(entry)
+    # Carrier badges are served over HTTP and pointed at by entity_picture, so
+    # the route has to exist before the platforms build their entities.
+    await async_register_logos(hass)
     coordinator: (
         InPostCoordinator | DpdCoordinator | FedexCoordinator | PocztexCoordinator | DhlCoordinator
     )

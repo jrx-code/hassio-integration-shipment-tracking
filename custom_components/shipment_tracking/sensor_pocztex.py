@@ -11,7 +11,15 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ALIAS, CONF_ARCHIVE_LIMIT, CONF_EMAIL, DEFAULT_ARCHIVE_LIMIT, DOMAIN
+from .const import (
+    CARRIER_POCZTEX,
+    CONF_ALIAS,
+    CONF_ARCHIVE_LIMIT,
+    CONF_EMAIL,
+    DEFAULT_ARCHIVE_LIMIT,
+    DOMAIN,
+)
+from .logos import logo_url
 from .coordinator_pocztex import PocztexCoordinator
 
 
@@ -38,6 +46,7 @@ class PocztexActiveSensor(CoordinatorEntity[PocztexCoordinator], SensorEntity):
     _attr_has_entity_name = True
     _attr_name = "W drodze"
     _attr_icon = "mdi:truck-delivery"
+    _attr_entity_picture = logo_url(CARRIER_POCZTEX)
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
 

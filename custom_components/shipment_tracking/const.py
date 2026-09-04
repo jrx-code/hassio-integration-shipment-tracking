@@ -441,6 +441,33 @@ def pocztex_is_active(progress_percentage) -> bool:
 # Either way the fix is the same and is what matters: keep the STORED jar
 # fresh, so a restart restores a jar that is minutes old rather than hours.
 # The coordinator writes it back to entry.data on every poll.
+#
+# ANSWERED 2026-09-04, and the 28.08 conclusion above was only half right.
+# The sliding window is real but was never being used: the token minted by
+# /auth/refresh went to get_parcels() and nowhere else, so the jar kept the
+# LOGIN-TIME credential and the session died 30 minutes after the SMS —
+# restart or no restart, poll frequency irrelevant. "Keep the stored jar
+# fresh" could not work, because the jar never moved: both entries'
+# modified_at stayed pinned to the SMS login (09:00:15 / 08:57:39 on 09-03),
+# the stored access-token's exp sat at exactly login+30 min, and the reauth
+# was raised on the first poll past that (09:45 / 09:43).
+#
+# The server states the mechanism itself. Replaying a dead jar against
+# /auth/refresh returns:
+#     HTTP/1.1 401 Unauthorized
+#     WWW-Authenticate: Bearer error="invalid_token",
+#       error_description="The token expired at '09/03/2026 09:30:14'"
+# — the stored cookie's own exp, to the second. So /auth/refresh
+# authenticates with the access-token cookie AS a bearer token, and the only
+# cookie it re-issues is F5's TS…; it never sets a new access-token.
+#
+# The credential is SPLIT ACROSS TWO COOKIES: access-token holds
+# header.payload (2 segments, 560 chars live) and access-signature holds the
+# 43-char HS256 signature. api_dhl._adopt_access_token() re-splits each
+# minted token the same way and puts it back in the jar, which is what makes
+# the window slide — and, as a side effect, finally gives the coordinator a
+# changed jar to persist. The poll interval is therefore also the keepalive;
+# coordinator_dhl clamps it to 20 min (DHL_MAX_INTERVAL).
 DHL_BASE = "https://mojdhl.pl/api/dhl/public"
 DHL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36"
 

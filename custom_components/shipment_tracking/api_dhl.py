@@ -83,17 +83,61 @@ class DhlApi:
 
     def import_cookies(self, cookies: list[dict]) -> None:
         for c in cookies or []:
-            self.jar.set_cookie(
-                http.cookiejar.Cookie(
-                    version=0, name=c["name"], value=c["value"],
-                    port=None, port_specified=False,
-                    domain=c["domain"], domain_specified=True,
-                    domain_initial_dot=c["domain"].startswith("."),
-                    path=c.get("path", "/"), path_specified=True,
-                    secure=c.get("secure", True), expires=None,
-                    discard=True, comment=None, comment_url=None, rest={},
-                )
+            self._put_cookie(
+                c["name"], c["value"],
+                domain=c["domain"], path=c.get("path", "/"),
+                secure=c.get("secure", True),
             )
+
+    def _put_cookie(
+        self, name: str, value: str, *,
+        domain: str = "mojdhl.pl", path: str = "/", secure: bool = True,
+    ) -> None:
+        """Set/replace one cookie in the jar (set_cookie overwrites by
+        name+domain+path)."""
+        self.jar.set_cookie(
+            http.cookiejar.Cookie(
+                version=0, name=name, value=value,
+                port=None, port_specified=False,
+                domain=domain, domain_specified=True,
+                domain_initial_dot=domain.startswith("."),
+                path=path, path_specified=True,
+                secure=secure, expires=None,
+                discard=True, comment=None, comment_url=None, rest={},
+            )
+        )
+
+    def _adopt_access_token(self, token: str) -> None:
+        """Install a freshly minted JWT as this jar's session credential.
+
+        DHL stores the access token SPLIT ACROSS TWO COOKIES, exactly as the
+        server's own Set-Cookie does it: ``access-token`` holds
+        ``header.payload`` (two segments) and ``access-signature`` holds the
+        43-char HS256 signature. Verified on both live accounts' stored jars
+        (560-char two-segment token + 43-char signature). Writing the whole
+        JWT into ``access-token`` would therefore NOT reconstitute a valid
+        credential.
+
+        This is what makes the sliding window actually slide. Measured
+        2026-09-04: ``/auth/refresh`` authenticates via this cookie pair as a
+        Bearer token and answers a dead one with
+        ``WWW-Authenticate: Bearer error="invalid_token",
+        error_description="The token expired at '09/03/2026 09:30:14'"`` —
+        the second matching the stored cookie's ``exp`` exactly. The endpoint
+        refreshes only F5's ``TS…`` cookie; it never re-issues ``access-token``.
+        So before this method existed the minted token went to get_parcels()
+        and nowhere else, the jar never moved (both entries' ``modified_at``
+        stayed pinned to the SMS login), and the session died 30 minutes after
+        login regardless of restarts or how often we polled.
+        """
+        parts = token.split(".")
+        if len(parts) != 3:
+            raise DhlError(
+                f"minted token is not a 3-segment JWT ({len(parts)} segments) "
+                "— cannot split into access-token/access-signature"
+            )
+        self._put_cookie("access-token", ".".join(parts[:2]))
+        self._put_cookie("access-signature", parts[2])
 
     # ---------------- HTTP ----------------
     def _get(self, path: str) -> dict:
@@ -186,13 +230,20 @@ class DhlApi:
         )
         if st != 200 or not body.get("success"):
             raise DhlAuthError(f"validate-code rejected: HTTP {st} {body}")
-        return body["token"]["token"]
+        token = body["token"]["token"]
+        self._adopt_access_token(token)
+        return token
 
     def refresh_session(self, device_id: str, device_name: str) -> str:
         """Cookie-based session refresh — no token/refresh param, just the
-        cookiejar this instance has been carrying since login(). Verified
-        live to mint a token with iat = call time (real sliding window),
-        not pinned to the original login like Pocztex's refresh_token."""
+        cookiejar this instance has been carrying since login(). Mints a
+        token with iat = call time, not pinned to the original login like
+        Pocztex's refresh_token.
+
+        The window only slides because _adopt_access_token() puts the minted
+        token back into the jar: this endpoint authenticates with the
+        access-token/access-signature cookie pair and never re-issues it
+        itself. Read that method before touching this one."""
         path = "/auth/refresh?" + urllib.parse.urlencode(
             {"deviceId": device_id, "deviceName": device_name}
         )
@@ -206,6 +257,7 @@ class DhlApi:
             raise DhlAuthError("DHL session expired (cookies rejected)")
         if st != 200 or not body.get("token"):
             raise DhlError(f"auth/refresh failed: HTTP {st} {body}")
+        self._adopt_access_token(body["token"])
         return body["token"]
 
     # ---------------- data ----------------

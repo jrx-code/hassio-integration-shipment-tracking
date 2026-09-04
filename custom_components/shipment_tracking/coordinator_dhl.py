@@ -3,45 +3,32 @@
 The config entry holds a snapshot of the cookiejar (CONF_COOKIES) plus a
 stable device_id/device_name pair. The coordinator restores those cookies
 into its own DhlApi instance at setup and calls refresh_session() every
-poll — verified live to mint a fresh-``iat`` token from cookies alone, a
-real sliding 30-minute window (unlike Pocztex's, see const.py's DHL
-section).
+poll.
 
-CORRECTED 2026-08-28, on two real live accounts. The earlier
-version deliberately did NOT write the jar back to entry.data, on the
-theory that the login-time snapshot would still be good after a restart.
-It is not, and the first real restart proved it: both DHL entries came up
-``setup_error`` / "DHL session expired". Autopsy of the stored snapshot —
-cookies ``BIGipServer…``, ``TS…``, ``access-token``, ``access-signature``,
-``access-remember`` — showed the stored ``access-token`` was a JWT whose
-``exp`` sat at login + 30 min, i.e. ~30 hours in the past, and replaying
-that whole set against /auth/refresh returned 401. Dropping the expired
-``access-token`` and replaying the rest (``access-remember`` included)
-returned 401 as well, so ``access-remember`` alone does not carry an aged
-session either.
+SESSION LIFETIME, measured 2026-09-04 — read this before changing the poll
+interval. The DHL session is a 30-minute token carried in the
+access-token/access-signature cookie pair, and /auth/refresh authenticates
+with that pair. Until 2026-09-04 the minted token was never written back
+into the jar, so the pair kept the login-time token and the session died 30
+minutes after the SMS, whichever way we polled: both entries' modified_at
+stayed pinned to the login instant, the stored token's exp sat at login+30,
+and the server's 401 named that exact timestamp. api_dhl._adopt_access_token
+is what fixes it. Consequence: THE POLL INTERVAL IS ALSO THE KEEPALIVE. Poll
+less often than every 30 minutes and the session expires between polls and
+asks for an SMS, so the interval is clamped below (DHL_MAX_INTERVAL).
 
-CORRECTED AGAIN the same evening, before the claim could harden into
-folklore: the first draft of this comment said the login-time jar is "spent
-the moment the first refresh succeeds". That is NOT established. After a
-fresh SMS reauth at 18:54 the entries survived a 19:05 HA restart on a jar
-that was still the login-time one, ~11 minutes old. An hours-old jar dies,
-a minutes-old one survives; where the boundary sits, and whether the cause
-is rotation or plain ageing, is UNMEASURED. The fix is the same either way
-and that is what matters: keep the STORED jar fresh, so a restart restores
-one that is minutes old rather than hours.
-
-So the jar is now persisted back to entry.data whenever it changes, which
-in practice is every poll. That write is only safe because
+The jar is persisted back to entry.data whenever it changes — now genuinely
+every poll, since the token rotates. That write is only safe because
 _async_reload_on_update (__init__.py) reloads on options changes only —
 without that guard this would reload the integration every poll, the same
 storm DPD and Pocztex each hit once.
 
 RESIDUAL, known and accepted: the first refresh of a setup runs while the
 entry is still SETUP_IN_PROGRESS, and persisting from there is what left
-DPD's coordinator empty until a reload (see coordinator_dpd.py). So that
-one jar is not written, and a restart inside the first poll interval after
-a reauth can still land on a spent snapshot and ask for SMS again. Every
-later restart is covered.
+DPD's coordinator empty until a reload (see coordinator_dpd.py). So that one
+jar is not written, and a restart inside the first poll interval after a
+reauth restores the login-time jar — which is fine as long as it is younger
+than 30 minutes, and it always is at that point.
 """
 from __future__ import annotations
 
@@ -68,6 +55,12 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 DEVICE_NAME = "Home Assistant"
+
+# The minted JWT lives 30 minutes (exp - iat, decoded live on both accounts).
+DHL_TOKEN_LIFETIME = timedelta(minutes=30)
+# Poll with margin inside that, so a slow/failed poll still has a second
+# chance before the session is gone.
+DHL_MAX_INTERVAL = timedelta(minutes=20)
 
 
 def normalize_parcel(p: dict, *, shared: bool = False) -> dict:
@@ -100,6 +93,16 @@ class DhlCoordinator(DataUpdateCoordinator[dict]):
         update_interval = (
             timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
         )
+        if update_interval > DHL_MAX_INTERVAL:
+            # Not a preference — the poll IS the keepalive (see module
+            # docstring). A longer interval hands the user an SMS prompt
+            # every time instead of parcels.
+            _LOGGER.warning(
+                "DHL scan interval %s exceeds the session's %s lifetime — "
+                "clamping to %s, otherwise the session expires between polls",
+                update_interval, DHL_TOKEN_LIFETIME, DHL_MAX_INTERVAL,
+            )
+            update_interval = DHL_MAX_INTERVAL
         super().__init__(
             hass,
             _LOGGER,

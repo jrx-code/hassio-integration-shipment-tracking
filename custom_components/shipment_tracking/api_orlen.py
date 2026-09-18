@@ -17,7 +17,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import quote
 
-from .const import ORLEN_API_URL, ORLEN_UA
+from .carriers_orlen_allegro import ORLEN_API_URL, ORLEN_UA
 
 
 class OrlenError(Exception):

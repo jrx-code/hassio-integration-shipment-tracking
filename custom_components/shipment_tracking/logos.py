@@ -39,7 +39,7 @@ _REGISTERED = f"{DOMAIN}_logos_registered"
 
 # Carriers whose badge ships with the integration. A carrier missing here simply
 # keeps its mdi icon — never a broken image.
-AVAILABLE = {"inpost", "dpd", "fedex", "pocztex", "dhl", "gls"}
+AVAILABLE = {"inpost", "dpd", "fedex", "pocztex", "dhl", "gls"}  # orlen/allegro_one: no badge PNG yet
 
 # Cache buster. The static route is registered with month-long cache headers, so
 # a redrawn badge under the same file name would keep showing the old picture in

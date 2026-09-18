@@ -19,13 +19,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ShipmentConfigEntry, carrier_of
+from .carriers_orlen_allegro import CARRIER_ALLEGRO_ONE, CARRIER_ORLEN
 from .const import (
-    CARRIER_ALLEGRO_ONE,
     CARRIER_DHL,
     CARRIER_DPD,
     CARRIER_FEDEX,
     CARRIER_INPOST,
-    CARRIER_ORLEN,
     CARRIER_POCZTEX,
 )
 from .entity import (

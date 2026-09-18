@@ -10,14 +10,12 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api_orlen import OrlenApi, OrlenError
+from .carriers_orlen_allegro import orlen_canonical, orlen_is_active, orlen_status_pl
 from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TRACKING_NUMBERS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    orlen_canonical,
-    orlen_is_active,
-    orlen_status_pl,
 )
 
 _LOGGER = logging.getLogger(__name__)

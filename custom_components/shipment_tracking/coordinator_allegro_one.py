@@ -9,14 +9,16 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api_allegro_one import AllegroOneApi, AllegroOneError
+from .carriers_orlen_allegro import (
+    allegro_one_canonical,
+    allegro_one_is_active,
+    allegro_one_status_pl,
+)
 from .const import (
     CONF_SCAN_INTERVAL,
     CONF_TRACKING_NUMBERS,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
-    allegro_one_canonical,
-    allegro_one_is_active,
-    allegro_one_status_pl,
 )
 
 _LOGGER = logging.getLogger(__name__)

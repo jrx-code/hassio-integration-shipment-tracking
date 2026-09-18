@@ -8,13 +8,12 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
+from .carriers_orlen_allegro import CARRIER_ALLEGRO_ONE, CARRIER_ORLEN
 from .const import (
-    CARRIER_ALLEGRO_ONE,
     CARRIER_DHL,
     CARRIER_DPD,
     CARRIER_FEDEX,
     CARRIER_INPOST,
-    CARRIER_ORLEN,
     CARRIER_POCZTEX,
     CONF_CARRIER,
     CONF_PHONE,

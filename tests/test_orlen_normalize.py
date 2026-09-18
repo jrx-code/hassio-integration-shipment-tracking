@@ -110,3 +110,37 @@ def test_normalize_parcel_from_sample():
 def test_status_pl_keeps_raw_for_unknown():
     assert _c.orlen_status_pl("Jakiś nowy status") == "Jakiś nowy status"
     assert _c.orlen_status_pl("") == "—"
+
+
+def test_normalize_err_shaped_payload_does_not_crash():
+    """API returns None for err 1003; normalize itself must tolerate the shape."""
+    out = _coord.normalize_parcel({"err": 1003})
+    assert out["number"] is None
+    assert out["canonical"] == "unknown"
+    assert out["status"] == "—"
+    assert out["history"] == []
+
+
+def test_normalize_empty_history_still_maps_status():
+    thin = {
+        "status": "Przesyłka nadana",
+        "number": "2100000000001",
+        "full": False,
+        "history": [],
+        "label": "Przesyłka nadana",
+        "return": False,
+        "truckNo": "ABC123",
+        "returnTruck": "Brak danych",
+    }
+    row = _coord.normalize_parcel(thin)
+    assert row["number"] == "2100000000001"
+    assert row["canonical"] == "in_transport"
+    assert row["active"] is True
+    assert row["truck_no"] == "ABC123"
+    assert row["history"] == []
+    assert row["updated"] is None
+
+
+def test_status_pl_known_keeps_raw_label():
+    # Known buckets keep the carrier's free-text label (entity display).
+    assert _c.orlen_status_pl("Przesyłka została odebrana") == "Przesyłka została odebrana"

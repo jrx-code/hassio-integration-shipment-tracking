@@ -12,7 +12,7 @@
 ![License](https://img.shields.io/github/license/jrx-code/hassio-integration-shipment-tracking?style=flat-square&color=FFCD00)
 ![Made in Poland](https://img.shields.io/badge/made_in-🇵🇱_Poland-white?style=flat-square)
 
-**Track your parcels natively in Home Assistant — InPost, DPD, FedEx, Pocztex and DHL today, more carriers planned — ready-to-pickup, in-transit and archive, as first-class entities.**
+**Track your parcels natively in Home Assistant — InPost, DPD, FedEx, Pocztex, DHL, **Orlen Paczka** and **Allegro One** — ready-to-pickup, in-transit and archive, as first-class entities.**
 
 </div>
 
@@ -100,6 +100,22 @@ Poczta Polska's own `state` field is already a Polish label — shown as-is,
 no canonical-status mapping needed. `postep` is the raw 0-100 progress
 percentage the API returns; anything under 100 counts as active.
 
+### Orlen Paczka (per configured tracking-number list)
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor` · **W drodze** | number of active (not yet delivered) tracking numbers | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, aktualizacja), `dostarczone[]` (latest N) |
+
+Public JSONP track-by-number (no Partner SOAP secrets). Same Options list pattern as FedEx. Details and risk notes: [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md). Sensors use **`mdi:truck-delivery`** (no badge PNG yet).
+
+### Allegro One (per configured tracking-number list)
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor` · **W drodze** | number of active (not yet delivered) tracking numbers | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, aktualizacja), `dostarczone[]` (latest N) |
+
+Public edge track-by-number (no Allegro OAuth). Use Allegro-internal waybills (`A…` / `AD…`). **Undocumented internal Accept header — production risk; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md).** Sensors use **`mdi:truck-delivery`** (no badge PNG yet).
+
 ## 🤝 Sharing a parcel with another account (InPost only)
 
 Configure two InPost accounts and each device gains one entity per *other*
@@ -147,7 +163,7 @@ Prerequisites and limits:
 ### HACS (recommended)
 
 1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-shipment-tracking` as **Integration** — or just click the **Open in HACS** badge above.
-2. Install **Shipment Tracking (InPost, DPD, FedEx, Pocztex, DHL)**, then restart Home Assistant.
+2. Install **Shipment Tracking (InPost, DPD, FedEx, Pocztex, DHL, Orlen Paczka, Allegro One)**, then restart Home Assistant.
 
 ### Manual
 
@@ -185,12 +201,16 @@ Pocztex:
 1.  Alias        →  optional
 2.  E-mail       →  existing Pocztex Mobile account (app-only registration)
 3.  Password
+
+Orlen Paczka / Allegro One (same shape as FedEx track-by-number):
+1.  Alias           →  optional
+    (tracking numbers are added afterwards, in Options — see docs/ORLEN_ALLEGRO_ONE.md)
 ```
 
 When a session expires, Home Assistant starts a re-auth for that carrier —
 a fresh SMS for InPost/DPD/DHL, the password form again for Pocztex. Per-entry
 **options**: polling interval (default 15 min), archived/delivered-parcels
-cap; FedEx additionally has its tracking-number list there, InPost an
+cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an
 ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app
 stopped showing — see [Entities](#-entities) above).
 
@@ -201,6 +221,7 @@ stopped showing — see [Entities](#-entities) above).
 - **DHL SMS auth** behind an Altcha proof-of-work captcha, solved client-side (brute-force `SHA-256(salt+n)==challenge`, a fraction of a second — not an image to click through). Session lives in httpOnly cookies set at login, refreshed with a genuine sliding 30-minute window on every poll.
 - **Pocztex email+password auth** via Keycloak authorization_code+PKCE (`idm.pocztex.pl`, realm `ppsa`) — direct password grant is disabled for this client, so it drives the same browser-less PKCE dance a login page would. Its session has a hard, non-sliding 30-minute cap: refreshing a token doesn't extend it, so this carrier re-logs-in every poll instead (the config entry stores the account password for that, not just a refresh token).
 - **FedEx** uses the official `developer.fedex.com` Track API (OAuth2 client_credentials) — the one carrier here that isn't a reverse-engineered consumer app.
+- **Orlen Paczka** uses the public JSONP status endpoint (no Partner SOAP). **Allegro One** uses `edge.allegro.pl` with an internal Accept media type — fragile by design; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md).
 - **ETag pagination** on InPost's `/v4/parcels/tracked` — InPost (ab)uses `ETag`/`If-None-Match` as a page cursor; a naive single GET misses recent parcels.
 - Blocking `urllib` clients for every carrier, driven from Home Assistant's executor; InPost `304` responses keep the last snapshot.
 - **Carrier badges** are 256² PNGs served by the integration itself at
@@ -214,7 +235,7 @@ stopped showing — see [Entities](#-entities) above).
 
 ## ⚠️ Disclaimer
 
-Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, DHL, or Poczta Polska/Pocztex. For InPost/DPD/Pocztex/DHL it talks to each carrier's consumer mobile/web API on your behalf using your own account; FedEx uses their official, documented developer API instead. Use it at your own discretion. All carrier names and logos belong to their respective owners.
+Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, DHL, Poczta Polska/Pocztex, Orlen Paczka, or Allegro. For InPost/DPD/Pocztex/DHL it talks to each carrier's consumer mobile/web API on your behalf using your own account; FedEx uses their official, documented developer API instead; Orlen Paczka uses a public JSONP status endpoint; Allegro One uses an undocumented public edge endpoint (operator accepts breakage risk — see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md)). Use it at your own discretion. All carrier names and logos belong to their respective owners.
 
 ## 📄 License
 

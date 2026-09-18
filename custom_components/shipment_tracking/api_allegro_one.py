@@ -20,7 +20,7 @@ import urllib.error
 import urllib.request
 from urllib.parse import quote
 
-from .const import ALLEGRO_ONE_API_URL, ALLEGRO_ONE_UA
+from .carriers_orlen_allegro import ALLEGRO_ONE_API_URL, ALLEGRO_ONE_UA
 
 
 class AllegroOneError(Exception):

@@ -1,8 +1,15 @@
-"""Orlen Paczka + Allegro One constants and status mapping.
+"""Orlen Paczka + Allegro One carrier ids, endpoints, and status mapping.
 
-Split out of const.py so the wiring commit stays reviewable; imported
-into const for a single import site used by coordinators/tests.
+Kept as a sibling of const.py so the large const module does not need a
+full rewrite for this feature. Importers take carrier ids from here and
+status helpers from here; const.CARRIERS is extended at use sites.
 """
+
+CARRIER_ORLEN = "orlen"
+CARRIER_ALLEGRO_ONE = "allegro_one"
+CARRIER_LABEL_ORLEN = "Orlen Paczka"
+CARRIER_LABEL_ALLEGRO_ONE = "Allegro One"
+
 # ============================ Orlen Paczka ============================
 # Public JSONP track-by-number endpoint used by orlenpaczka.pl / jwilk/pacz —
 # NOT the partner SOAP API (which needs PartnerID/PartnerKey). No account,
@@ -59,7 +66,6 @@ def orlen_status_pl(status_text: str) -> str:
     bucket = orlen_canonical(status_text)
     if bucket == "unknown":
         return (status_text or "").strip() or "—"
-    # Prefer the carrier's own wording when we have it.
     return (status_text or "").strip() or ORLEN_CANONICAL_PL.get(bucket, "—")
 
 
@@ -68,11 +74,8 @@ def orlen_is_active(status_text: str) -> bool:
 
 
 # ============================ Allegro One ============================
-# Public edge tracking endpoint (no OAuth) used by Allegro's own tracking
-# page / jwilk/pacz — NOT api.allegro.pl/order/carriers/... which requires
-# a seller OAuth token. Waybills are Allegro-internal (A… / AD…), not the
-# subcontractor number. Track-by-number list in options, like FedEx/Orlen.
-# Verified live 2026-09-18 against A000YR4D27 (full Polish status history).
+# Public edge tracking endpoint (no OAuth). Waybills are Allegro-internal
+# (A… / AD…), not the subcontractor number. Verified live 2026-09-18.
 # Risk: undocumented internal Accept media type; may change without notice.
 ALLEGRO_ONE_API_URL = "https://edge.allegro.pl/ad/tracking"
 ALLEGRO_ONE_UA = "HomeAssistant-ShipmentTracking/2.10"
@@ -93,13 +96,7 @@ ALLEGRO_ONE_TERMINAL = {"delivered", "returned", "cancelled"}
 
 
 def allegro_one_canonical(status_text: str) -> str:
-    """Map Allegro One status description to a canonical bucket.
-
-    Descriptions are free text (PL with Accept-Language: pl-PL, else EN).
-    Captured live 2026-09-18 sample included: przygotowana przez nadawcę,
-    odebrana przez kuriera, przyjęta w oddziale, wydana do doręczenia,
-    oczekuje na odbiór, została doręczona.
-    """
+    """Map Allegro One status description to a canonical bucket."""
     s = (status_text or "").strip().lower()
     if not s:
         return "unknown"

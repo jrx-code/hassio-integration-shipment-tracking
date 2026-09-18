@@ -112,3 +112,25 @@ def test_in_transit_sample_is_active():
     row = _coord.normalize_parcel(mid)
     assert row["canonical"] == "in_transport"
     assert row["active"] is True
+
+
+def test_normalize_empty_status_list():
+    row = _coord.normalize_parcel({"number": "A000EMPTY0", "status": []})
+    assert row["number"] == "A000EMPTY0"
+    assert row["canonical"] == "unknown"
+    assert row["status"] == "—"
+    assert row["active"] is True  # unknown is not terminal
+    assert row["history"] == []
+    assert row["updated"] is None
+
+
+def test_returned_and_cancelled_keywords():
+    assert _c.allegro_one_canonical("Przesyłka została zwrócona do nadawcy") == "returned"
+    assert _c.allegro_one_canonical("Przesyłka anulowana") == "cancelled"
+    assert not _c.allegro_one_is_active("Przesyłka została zwrócona do nadawcy")
+    assert not _c.allegro_one_is_active("Przesyłka anulowana")
+
+
+def test_status_pl_keeps_raw_for_unknown():
+    assert _c.allegro_one_status_pl("Brand new mystery status") == "Brand new mystery status"
+    assert _c.allegro_one_status_pl("") == "—"

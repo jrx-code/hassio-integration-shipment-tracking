@@ -4,7 +4,9 @@
       "user": {
         "title": "Add a carrier account",
         "description": "Pick the carrier to track.",
-        "data": { "carrier": "Carrier" }
+        "data": {
+          "carrier": "Carrier"
+        }
       },
       "inpost": {
         "title": "Add an InPost account",
@@ -18,7 +20,9 @@
       "sms": {
         "title": "Enter the SMS code",
         "description": "Code sent to {phone}.",
-        "data": { "code": "6-digit code" }
+        "data": {
+          "code": "6-digit code"
+        }
       },
       "dpd": {
         "title": "Add a DPD account",
@@ -31,7 +35,9 @@
       "dpd_sms": {
         "title": "Enter the DPD SMS code",
         "description": "Code sent to {phone}.",
-        "data": { "code": "Code" }
+        "data": {
+          "code": "Code"
+        }
       },
       "reauth_confirm": {
         "title": "Re-authenticate",
@@ -67,7 +73,23 @@
       "dhl_sms": {
         "title": "Enter the DHL SMS code",
         "description": "Code sent to {phone}.",
-        "data": { "code": "Code" }
+        "data": {
+          "code": "Code"
+        }
+      },
+      "orlen": {
+        "title": "Add Orlen Paczka tracking",
+        "description": "Public track-by-number — no account or API key. Add parcel numbers afterwards in Options.",
+        "data": {
+          "alias": "Name (alias, optional)"
+        }
+      },
+      "allegro_one": {
+        "title": "Add Allegro One tracking",
+        "description": "Public track-by-number via Allegro edge API — no OAuth. Use Allegro-internal waybills (A… / AD…), not UPS/DPD/Orlen subcontractor numbers. Add numbers afterwards in Options.",
+        "data": {
+          "alias": "Name (alias, optional)"
+        }
       }
     },
     "error": {
@@ -90,7 +112,7 @@
           "scan_interval": "Polling interval (minutes)",
           "archive_limit": "Delivered/archived parcels shown (0-100)",
           "notify_ready": "Notify on ready-to-pickup",
-          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx only)",
+          "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx / Orlen Paczka / Allegro One)",
           "ignored_shipments_csv": "Ignored shipment numbers, comma-separated (InPost only) — hides zombie records InPost's own app no longer shows"
         }
       }

@@ -7,8 +7,8 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
+from .carriers_orlen_allegro import CARRIER_ALLEGRO_ONE
 from .const import (
-    CARRIER_ALLEGRO_ONE,
     CONF_ALIAS,
     CONF_ARCHIVE_LIMIT,
     DEFAULT_ARCHIVE_LIMIT,

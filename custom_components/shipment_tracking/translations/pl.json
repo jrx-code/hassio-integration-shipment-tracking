@@ -4,7 +4,9 @@
       "user": {
         "title": "Dodaj konto przewoźnika",
         "description": "Wybierz przewoźnika do śledzenia.",
-        "data": { "carrier": "Przewoźnik" }
+        "data": {
+          "carrier": "Przewoźnik"
+        }
       },
       "inpost": {
         "title": "Dodaj konto InPost",
@@ -18,7 +20,9 @@
       "sms": {
         "title": "Wpisz kod SMS",
         "description": "Kod wysłany na {phone}.",
-        "data": { "code": "6-cyfrowy kod" }
+        "data": {
+          "code": "6-cyfrowy kod"
+        }
       },
       "dpd": {
         "title": "Dodaj konto DPD",
@@ -31,7 +35,9 @@
       "dpd_sms": {
         "title": "Wpisz kod SMS z DPD",
         "description": "Kod wysłany na {phone}.",
-        "data": { "code": "Kod" }
+        "data": {
+          "code": "Kod"
+        }
       },
       "reauth_confirm": {
         "title": "Ponowne logowanie",
@@ -67,7 +73,23 @@
       "dhl_sms": {
         "title": "Wpisz kod SMS z DHL",
         "description": "Kod wysłany na {phone}.",
-        "data": { "code": "Kod" }
+        "data": {
+          "code": "Kod"
+        }
+      },
+      "orlen": {
+        "title": "Dodaj śledzenie Orlen Paczka",
+        "description": "Publiczne śledzenie po numerze — bez konta i klucza API. Numery przesyłek dodajesz później, w Opcjach.",
+        "data": {
+          "alias": "Nazwa (alias, opcjonalnie)"
+        }
+      },
+      "allegro_one": {
+        "title": "Dodaj śledzenie Allegro One",
+        "description": "Publiczne śledzenie po numerze (edge Allegro) — bez OAuth. Podawaj wewnętrzne numery Allegro (A… / AD…), nie numery UPS/DPD/Orlen. Numery dodajesz później, w Opcjach.",
+        "data": {
+          "alias": "Nazwa (alias, opcjonalnie)"
+        }
       }
     },
     "error": {
@@ -90,7 +112,7 @@
           "scan_interval": "Interwał odpytywania (minuty)",
           "archive_limit": "Liczba pokazywanych paczek dostarczonych/archiwalnych (0-100)",
           "notify_ready": "Powiadamiaj o gotowych do odbioru",
-          "tracking_numbers_csv": "Numery przesyłek, oddzielone przecinkami (tylko FedEx)",
+          "tracking_numbers_csv": "Numery przesyłek, oddzielone przecinkami (FedEx / Orlen Paczka / Allegro One)",
           "ignored_shipments_csv": "Ignorowane numery przesyłek, oddzielone przecinkami (tylko InPost) — ukrywa zombie-rekordy, których apka InPost już nie pokazuje"
         }
       }

@@ -28,6 +28,7 @@ def _stub(name: str, **attrs):
 def _load_flat(modname: str, path: Path):
     src = path.read_text()
     src = src.replace("from .const import", "from const import")
+    src = src.replace("from .ssl_compat import", "from ssl_compat import")
     src = src.replace("from .api_dhl import", "from api_dhl import")
     mod = types.ModuleType(modname)
     sys.modules[modname] = mod
@@ -56,6 +57,7 @@ def _load_coordinator_dhl():
     _stub("homeassistant.helpers.update_coordinator", DataUpdateCoordinator=_DUC, UpdateFailed=Exception)
 
     _load_flat("const", _PKG_DIR / "const.py")
+    _load_flat("ssl_compat", _PKG_DIR / "ssl_compat.py")
     _load_flat("api_dhl", _PKG_DIR / "api_dhl.py")
     return _load_flat("coordinator_dhl", _PKG_DIR / "coordinator_dhl.py")
 

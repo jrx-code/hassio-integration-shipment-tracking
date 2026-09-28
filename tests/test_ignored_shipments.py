@@ -13,6 +13,7 @@ _PKG_DIR = Path(__file__).resolve().parents[1] / "custom_components" / "shipment
 def _load_flat(modname: str, path: Path):
     src = path.read_text()
     src = src.replace("from .const import", "from const import")
+    src = src.replace("from .ssl_compat import", "from ssl_compat import")
     mod = types.ModuleType(modname)
     sys.modules[modname] = mod
     exec(compile(src, str(path), "exec"), mod.__dict__)
@@ -21,6 +22,7 @@ def _load_flat(modname: str, path: Path):
 
 sys.path.insert(0, str(_PKG_DIR))
 _load_flat("const", _PKG_DIR / "const.py")
+_load_flat("ssl_compat", _PKG_DIR / "ssl_compat.py")
 _api = _load_flat("inpost_api", _PKG_DIR / "api.py")
 filter_ignored = _api.filter_ignored
 

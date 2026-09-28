@@ -18,6 +18,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from .ssl_compat import get_ssl_context
 from .const import DHL_BASE, DHL_UA
 
 
@@ -164,7 +165,7 @@ class DhlApi:
 
     def _do_raw(self, req: urllib.request.Request) -> tuple[int, dict]:
         if self._ctx is None:
-            self._ctx = ssl.create_default_context()
+            self._ctx = get_ssl_context()
         try:
             with self.opener.open(req, timeout=25) as r:
                 raw = r.read().decode()

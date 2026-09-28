@@ -38,6 +38,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from .ssl_compat import get_ssl_context
 from .const import (
     POCZTEX_APP_URL,
     POCZTEX_CLIENT_ID,
@@ -79,7 +80,7 @@ class PocztexApi:
         POST's 302 carries the authorization code in its Location header
         (fragment-mode), which we need to read ourselves, not chase."""
         if self._ctx is None:
-            self._ctx = ssl.create_default_context()
+            self._ctx = get_ssl_context()
         no_redirect = type("NoRedirect", (urllib.request.HTTPRedirectHandler,), {
             "redirect_request": lambda self, *a, **kw: None
         })
@@ -162,7 +163,7 @@ class PocztexApi:
         code_verifier: str | None = None,
     ) -> tuple[str, str]:
         if self._ctx is None:
-            self._ctx = ssl.create_default_context()
+            self._ctx = get_ssl_context()
         if code is not None:
             form = {
                 "grant_type": "authorization_code",
@@ -214,7 +215,7 @@ class PocztexApi:
             method="GET",
         )
         if self._ctx is None:
-            self._ctx = ssl.create_default_context()
+            self._ctx = get_ssl_context()
         try:
             with urllib.request.urlopen(req, timeout=25, context=self._ctx) as r:
                 return json.loads(r.read().decode()) or []

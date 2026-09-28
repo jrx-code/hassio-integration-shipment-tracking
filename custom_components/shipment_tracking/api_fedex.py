@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
+from .ssl_compat import get_ssl_context
 from .const import FEDEX_MAX_NUMBERS_PER_REQUEST, FEDEX_OAUTH_URL, FEDEX_TRACK_URL
 
 
@@ -41,7 +42,7 @@ class FedexApi:
 
     def _do(self, req: urllib.request.Request):
         if self._ctx is None:
-            self._ctx = ssl.create_default_context()
+            self._ctx = get_ssl_context()
         try:
             with urllib.request.urlopen(req, timeout=25, context=self._ctx) as r:
                 body = r.read().decode() or "{}"

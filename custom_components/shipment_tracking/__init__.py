@@ -49,6 +49,15 @@ def carrier_of(entry: ConfigEntry) -> str:
 async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> bool:
     """Set up one carrier account from a config entry."""
     carrier = carrier_of(entry)
+    # Warm the shared urllib SSL context off the event loop once per HA run
+    # (create_default_context / load_default_certs is blocking — issue #3).
+    ssl_key = f"{DOMAIN}_ssl_context"
+    if ssl_key not in hass.data:
+        from .ssl_compat import create_ssl_context, set_ssl_context
+
+        ctx = await hass.async_add_executor_job(create_ssl_context)
+        set_ssl_context(ctx)
+        hass.data[ssl_key] = True
     # Carrier badges are served over HTTP and pointed at by entity_picture, so
     # the route has to exist before the platforms build their entities.
     await async_register_logos(hass)

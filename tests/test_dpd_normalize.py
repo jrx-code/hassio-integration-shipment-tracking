@@ -28,6 +28,7 @@ def _load_flat(modname: str, path: Path):
     without a real package context or Home Assistant installed."""
     src = path.read_text()
     src = src.replace("from .const import", "from const import")
+    src = src.replace("from .ssl_compat import", "from ssl_compat import")
     src = src.replace("from .api_dpd import", "from api_dpd import")
     mod = types.ModuleType(modname)
     sys.modules[modname] = mod
@@ -50,6 +51,7 @@ def _load_coordinator_dpd():
     _stub("homeassistant.helpers.update_coordinator", DataUpdateCoordinator=_DUC, UpdateFailed=Exception)
 
     _load_flat("const", _PKG_DIR / "const.py")
+    _load_flat("ssl_compat", _PKG_DIR / "ssl_compat.py")
     _load_flat("api_dpd", _PKG_DIR / "api_dpd.py")
     return _load_flat("coordinator_dpd", _PKG_DIR / "coordinator_dpd.py")
 

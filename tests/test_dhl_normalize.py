@@ -10,6 +10,7 @@ design, see the caveat in const.py).
 
     python3 -m pytest tests/test_dhl_normalize.py -q
 """
+
 import sys
 import types
 from pathlib import Path
@@ -73,14 +74,21 @@ _REAL_SHIPMENT = {
     "parcelExpirationDate": None,
     "cod": {"packagePaymentStatus": None},
     "permissions": {
-        "canArchiveShipment": True, "canRemoveShipment": True,
-        "canRedirectShipment": False, "showResignedFromShipment": False,
-        "showLostShipment": False, "showDisposedhipment": False,
+        "canArchiveShipment": True,
+        "canRemoveShipment": True,
+        "canRedirectShipment": False,
+        "showResignedFromShipment": False,
+        "showLostShipment": False,
+        "showDisposedhipment": False,
         "canCreateReturn": True,
     },
     "menuTimelineLabel": {
-        "status": "Delivered", "label": "ReceiptDate", "dateText": None,
-        "dateUtc": "2026-08-26T09:54:29Z", "dateToUtc": None, "showHour": True,
+        "status": "Delivered",
+        "label": "ReceiptDate",
+        "dateText": None,
+        "dateUtc": "2026-08-26T09:54:29Z",
+        "dateToUtc": None,
+        "showHour": True,
     },
     "inAppPaymentStatus": None,
     "returnInfo": {"isReturn": False},
@@ -148,17 +156,29 @@ def test_handed_to_a_locker_is_waiting_for_pickup_not_delivered():
 
 def test_collected_and_returned_are_terminal():
     const = sys.modules["const"]
-    for key in ("Delivered", "RetrievedFromLocker", "RetrievedFromPoint",
-                "ParcelReturnedToSender", "Resignated", "Disposed"):
+    for key in (
+        "Delivered",
+        "RetrievedFromLocker",
+        "RetrievedFromPoint",
+        "ParcelReturnedToSender",
+        "Resignated",
+        "Disposed",
+    ):
         assert const.dhl_is_active("", key) is False, key
 
 
 def test_trouble_states_stay_visible():
     """A late, refused or lost parcel must not slip into the archive."""
     const = sys.modules["const"]
-    for key in ("DeliveryDelay", "UnsuccessfulAttemptAtDelivery",
-                "SecondUnsuccessfulAttemptAtDelivery", "Lost",
-                "DeliveryProblem", "WaitingForShipperDecision", "ContactDHL"):
+    for key in (
+        "DeliveryDelay",
+        "UnsuccessfulAttemptAtDelivery",
+        "SecondUnsuccessfulAttemptAtDelivery",
+        "Lost",
+        "DeliveryProblem",
+        "WaitingForShipperDecision",
+        "ContactDHL",
+    ):
         assert const.dhl_canonical("", key) == "exception", key
         assert const.dhl_is_active("", key) is True, key
 
@@ -227,10 +247,8 @@ def _coordinator(stored, jar, state):
     return c
 
 
-_STARY = [{"name": "access-remember", "value": "old", "domain": "mojdhl.pl",
-           "path": "/", "secure": True}]
-_NOWY = [{"name": "access-remember", "value": "new", "domain": "mojdhl.pl",
-          "path": "/", "secure": True}]
+_STARY = [{"name": "access-remember", "value": "old", "domain": "mojdhl.pl", "path": "/", "secure": True}]
+_NOWY = [{"name": "access-remember", "value": "new", "domain": "mojdhl.pl", "path": "/", "secure": True}]
 
 
 def test_rotated_jar_is_written_back_to_entry_data():

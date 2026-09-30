@@ -59,6 +59,7 @@ long enough that it looked hung from the outside. Do not assume a slow InPost
 restart is stuck; check the container's own log timestamps for real silence
 before intervening.
 """
+
 from datetime import timedelta
 
 DOMAIN = "shipment_tracking"
@@ -131,34 +132,63 @@ DEFAULT_BASE = "https://api-inmobile-pl.easypack24.net"
 DEFAULT_UA = "InPost-Mobile/3.23.0(32300001) (Android 9; unknown; unknown unknown; en)"
 
 READY = {
-    "READY_TO_PICKUP", "READY_TO_PICKUP_FROM_POK",
-    "READY_TO_PICKUP_FROM_BRANCH", "STACK_IN_BOX_MACHINE",
+    "READY_TO_PICKUP",
+    "READY_TO_PICKUP_FROM_POK",
+    "READY_TO_PICKUP_FROM_BRANCH",
+    "STACK_IN_BOX_MACHINE",
 }
 IN_TRANSIT = {
-    "CONFIRMED", "ADOPTED_AT_SOURCE_BRANCH", "SENT_FROM_SOURCE_BRANCH",
-    "COLLECTED_FROM_SENDER", "TAKEN_BY_COURIER", "ADOPTED_AT_SORTING_CENTER",
-    "OUT_FOR_DELIVERY", "OUT_FOR_DELIVERY_TO_ADDRESS", "DISPATCHED_BY_SENDER",
-    "REDIRECT_TO_BOX", "READDRESSED", "OFFERS_PREPARED", "OFFER_SELECTED",
+    "CONFIRMED",
+    "ADOPTED_AT_SOURCE_BRANCH",
+    "SENT_FROM_SOURCE_BRANCH",
+    "COLLECTED_FROM_SENDER",
+    "TAKEN_BY_COURIER",
+    "ADOPTED_AT_SORTING_CENTER",
+    "OUT_FOR_DELIVERY",
+    "OUT_FOR_DELIVERY_TO_ADDRESS",
+    "DISPATCHED_BY_SENDER",
+    "REDIRECT_TO_BOX",
+    "READDRESSED",
+    "OFFERS_PREPARED",
+    "OFFER_SELECTED",
     "CREATED",
 }
 ARCHIVED = {
-    "DELIVERED", "PICKUP_TIME_EXPIRED", "CANCELED",
-    "RETURNED_TO_SENDER", "AVIZO", "CLAIMED", "UNSTACK_FROM_BOX_MACHINE",
+    "DELIVERED",
+    "PICKUP_TIME_EXPIRED",
+    "CANCELED",
+    "RETURNED_TO_SENDER",
+    "AVIZO",
+    "CLAIMED",
+    "UNSTACK_FROM_BOX_MACHINE",
 }
 
 STATUS_PL = {
-    "READY_TO_PICKUP": "Gotowa do odbioru", "READY_TO_PICKUP_FROM_POK": "Gotowa (punkt)",
-    "READY_TO_PICKUP_FROM_BRANCH": "Gotowa (oddział)", "STACK_IN_BOX_MACHINE": "W skrytce",
-    "CONFIRMED": "Potwierdzona", "ADOPTED_AT_SOURCE_BRANCH": "Przyjęta (oddział nadania)",
-    "SENT_FROM_SOURCE_BRANCH": "Wysłana z oddziału", "COLLECTED_FROM_SENDER": "Odebrana od nadawcy",
-    "TAKEN_BY_COURIER": "U kuriera", "ADOPTED_AT_SORTING_CENTER": "W sortowni",
-    "OUT_FOR_DELIVERY": "W doręczeniu", "OUT_FOR_DELIVERY_TO_ADDRESS": "W doręczeniu (adres)",
-    "DISPATCHED_BY_SENDER": "Nadana przez nadawcę", "REDIRECT_TO_BOX": "Przekierowana do paczkomatu",
-    "READDRESSED": "Przeadresowana", "OFFERS_PREPARED": "Oferta przygotowana",
-    "OFFER_SELECTED": "Oferta wybrana", "CREATED": "Utworzona",
-    "DELIVERED": "Odebrana", "PICKUP_TIME_EXPIRED": "Czas odbioru minął",
-    "CANCELED": "Anulowana", "RETURNED_TO_SENDER": "Zwrócona do nadawcy",
-    "AVIZO": "Awizowana", "CLAIMED": "Reklamacja", "UNSTACK_FROM_BOX_MACHINE": "Wyjęta ze skrytki",
+    "READY_TO_PICKUP": "Gotowa do odbioru",
+    "READY_TO_PICKUP_FROM_POK": "Gotowa (punkt)",
+    "READY_TO_PICKUP_FROM_BRANCH": "Gotowa (oddział)",
+    "STACK_IN_BOX_MACHINE": "W skrytce",
+    "CONFIRMED": "Potwierdzona",
+    "ADOPTED_AT_SOURCE_BRANCH": "Przyjęta (oddział nadania)",
+    "SENT_FROM_SOURCE_BRANCH": "Wysłana z oddziału",
+    "COLLECTED_FROM_SENDER": "Odebrana od nadawcy",
+    "TAKEN_BY_COURIER": "U kuriera",
+    "ADOPTED_AT_SORTING_CENTER": "W sortowni",
+    "OUT_FOR_DELIVERY": "W doręczeniu",
+    "OUT_FOR_DELIVERY_TO_ADDRESS": "W doręczeniu (adres)",
+    "DISPATCHED_BY_SENDER": "Nadana przez nadawcę",
+    "REDIRECT_TO_BOX": "Przekierowana do paczkomatu",
+    "READDRESSED": "Przeadresowana",
+    "OFFERS_PREPARED": "Oferta przygotowana",
+    "OFFER_SELECTED": "Oferta wybrana",
+    "CREATED": "Utworzona",
+    "DELIVERED": "Odebrana",
+    "PICKUP_TIME_EXPIRED": "Czas odbioru minął",
+    "CANCELED": "Anulowana",
+    "RETURNED_TO_SENDER": "Zwrócona do nadawcy",
+    "AVIZO": "Awizowana",
+    "CLAIMED": "Reklamacja",
+    "UNSTACK_FROM_BOX_MACHINE": "Wyjęta ze skrytki",
 }
 
 
@@ -253,7 +283,10 @@ def dpd_canonical(raw: str) -> str:
         return "cancelled"
     if any(x in s for x in ("fail", "problem", "undeliver", "reject", "exception")):
         return "exception"
-    if any(x in s for x in ("transport", "transit", "depot", "sorting", "received", "sent", "adopted", "arrived", "departed")):
+    if any(
+        x in s
+        for x in ("transport", "transit", "depot", "sorting", "received", "sent", "adopted", "arrived", "departed")
+    ):
         return "in_transport"
     if any(x in s for x in ("created", "label", "confirmed")):
         return "created"
@@ -305,13 +338,13 @@ FEDEX_TERMINAL = {"delivered", "cancelled"}
 # well-attested, not confirmed. Unknown codes fall back to a keyword scan
 # over statusByLocale/description, then "unknown", same pattern as DPD.
 _FEDEX_DERIVED_EXACT = {
-    "IN": "created",              # Initiated — verified live 2026-08-25
-    "PU": "in_transport",         # Picked up
-    "IT": "in_transport",         # In transit
+    "IN": "created",  # Initiated — verified live 2026-08-25
+    "PU": "in_transport",  # Picked up
+    "IT": "in_transport",  # In transit
     "OD": "handed_out_for_delivery",  # Out for delivery
-    "DL": "delivered",            # Delivered
-    "DE": "exception",            # Delivery exception
-    "CA": "cancelled",            # Shipment canceled
+    "DL": "delivered",  # Delivered
+    "DE": "exception",  # Delivery exception
+    "CA": "cancelled",  # Shipment canceled
 }
 
 
@@ -534,8 +567,7 @@ _DHL_TIMELINE = {
     # at the door or lost is precisely the one that must not quietly vanish
     # from the panel into the archive.
     "UnsuccessfulAttemptAtDelivery": ("exception", "Nieudana próba doręczenia"),
-    "SecondUnsuccessfulAttemptAtDelivery": (
-        "exception", "Druga nieudana próba doręczenia"),
+    "SecondUnsuccessfulAttemptAtDelivery": ("exception", "Druga nieudana próba doręczenia"),
     "DeliveryDelay": ("exception", "Opóźnienie dostawy"),
     "DeliveryProblem": ("exception", "Mamy problem z doręczeniem Twojej przesyłki"),
     "WaitingForShipperDecision": ("exception", "Oczekujemy na decyzje nadawcy"),

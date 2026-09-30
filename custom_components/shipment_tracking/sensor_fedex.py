@@ -6,6 +6,7 @@ has everything on one entity. There is no "Do odbioru"/archive split like
 InPost: FedEx numbers are user-added and stay tracked until removed from
 options, delivered or not.
 """
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -21,8 +22,8 @@ from .const import (
     DEFAULT_ARCHIVE_LIMIT,
     DOMAIN,
 )
-from .logos import logo_url
 from .coordinator_fedex import FedexCoordinator
+from .logos import logo_url
 
 
 async def async_setup_fedex_sensors(
@@ -72,9 +73,7 @@ class FedexActiveSensor(CoordinatorEntity[FedexCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict:
         data = self.coordinator.data or {}
         counts = data.get("counts", {})
-        limit = int(
-            self.coordinator.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT)
-        )
+        limit = int(self.coordinator.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT))
         return {
             "active_count": counts.get("active", 0),
             "delivered_count": counts.get("delivered", 0),

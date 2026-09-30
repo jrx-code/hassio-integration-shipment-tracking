@@ -7,6 +7,7 @@ a real account. stdlib only (urllib + http.cookiejar) — blocking, callers
 run it in an executor. See const.py's DHL section for the session-mechanics
 writeup (cookie-based refresh, not the opaque ``refresh`` string).
 """
+
 from __future__ import annotations
 
 import base64
@@ -60,9 +61,7 @@ class DhlApi:
     def __init__(self) -> None:
         self._ctx: ssl.SSLContext | None = None
         self.jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(self.jar)
-        )
+        self.opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(self.jar))
 
     def export_cookies(self) -> list[dict]:
         """Snapshot the cookiejar as plain dicts — the config entry's only
@@ -75,8 +74,11 @@ class DhlApi:
         proof they die with the process."""
         return [
             {
-                "name": c.name, "value": c.value, "domain": c.domain,
-                "path": c.path, "secure": c.secure,
+                "name": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "secure": c.secure,
             }
             for c in self.jar
         ]
@@ -84,26 +86,42 @@ class DhlApi:
     def import_cookies(self, cookies: list[dict]) -> None:
         for c in cookies or []:
             self._put_cookie(
-                c["name"], c["value"],
-                domain=c["domain"], path=c.get("path", "/"),
+                c["name"],
+                c["value"],
+                domain=c["domain"],
+                path=c.get("path", "/"),
                 secure=c.get("secure", True),
             )
 
     def _put_cookie(
-        self, name: str, value: str, *,
-        domain: str = "mojdhl.pl", path: str = "/", secure: bool = True,
+        self,
+        name: str,
+        value: str,
+        *,
+        domain: str = "mojdhl.pl",
+        path: str = "/",
+        secure: bool = True,
     ) -> None:
         """Set/replace one cookie in the jar (set_cookie overwrites by
         name+domain+path)."""
         self.jar.set_cookie(
             http.cookiejar.Cookie(
-                version=0, name=name, value=value,
-                port=None, port_specified=False,
-                domain=domain, domain_specified=True,
+                version=0,
+                name=name,
+                value=value,
+                port=None,
+                port_specified=False,
+                domain=domain,
+                domain_specified=True,
                 domain_initial_dot=domain.startswith("."),
-                path=path, path_specified=True,
-                secure=secure, expires=None,
-                discard=True, comment=None, comment_url=None, rest={},
+                path=path,
+                path_specified=True,
+                secure=secure,
+                expires=None,
+                discard=True,
+                comment=None,
+                comment_url=None,
+                rest={},
             )
         )
 
@@ -209,9 +227,7 @@ class DhlApi:
             raise DhlError(f"generate-code failed: HTTP {st} {body}")
         return body.get("responseCode") == 0
 
-    def verify_sms(
-        self, phone: str, sms_code: str, device_id: str, device_name: str
-    ) -> str:
+    def verify_sms(self, phone: str, sms_code: str, device_id: str, device_name: str) -> str:
         """Verify the SMS code. Returns the access token (JWT) — the real
         credential to persist afterwards is this client's cookiejar, not
         the token string (it expires in 30 min and refresh_session() mints
@@ -244,9 +260,7 @@ class DhlApi:
         token back into the jar: this endpoint authenticates with the
         access-token/access-signature cookie pair and never re-issues it
         itself. Read that method before touching this one."""
-        path = "/auth/refresh?" + urllib.parse.urlencode(
-            {"deviceId": device_id, "deviceName": device_name}
-        )
+        path = "/auth/refresh?" + urllib.parse.urlencode({"deviceId": device_id, "deviceName": device_name})
         st, body = self._do_raw(
             urllib.request.Request(
                 f"{DHL_BASE}{path}",
@@ -269,9 +283,7 @@ class DhlApi:
         one parcel, pagination itself is unverified."""
         req = urllib.request.Request(
             f"{DHL_BASE}/user/shipment/v2.1/list/incoming/active/{page}",
-            data=json.dumps(
-                {"shipmentFilterTypes": [], "shipmentFilterStatuses": [], "page": page}
-            ).encode(),
+            data=json.dumps({"shipmentFilterTypes": [], "shipmentFilterStatuses": [], "page": page}).encode(),
             headers={
                 "Content-Type": "application/json",
                 "Accept": "application/json",

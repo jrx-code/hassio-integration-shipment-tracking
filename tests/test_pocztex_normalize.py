@@ -8,6 +8,7 @@ branch; see the caveat in const.py).
 
     python3 -m pytest tests/test_pocztex_normalize.py -q
 """
+
 import sys
 import types
 from pathlib import Path
@@ -58,26 +59,45 @@ _coord = _load_coordinator_pocztex()
 # Real GET /api/customer/tracking response body, captured live 2026-08-25.
 _REAL_RESPONSE = [
     {
-        "id": 4845650, "label": None, "createdAt": "2026-08-25T21:20:38.512+00:00",
-        "archived": False, "direction": "RECIPIENT", "state": "Doręczona",
-        "pickupDate": None, "consignmentNumber": "PX2319493690", "facilityType": None,
-        "progressPercentage": 100, "archiveCheck": "2026-08-25T21:20:38.512+00:00",
-        "stateDate": "2026-08-03T11:15:52.000+00:00", "stateCode": "P_D",
-        "pni": None, "paymentRetryTime": None,
+        "id": 4845650,
+        "label": None,
+        "createdAt": "2026-08-25T21:20:38.512+00:00",
+        "archived": False,
+        "direction": "RECIPIENT",
+        "state": "Doręczona",
+        "pickupDate": None,
+        "consignmentNumber": "PX2319493690",
+        "facilityType": None,
+        "progressPercentage": 100,
+        "archiveCheck": "2026-08-25T21:20:38.512+00:00",
+        "stateDate": "2026-08-03T11:15:52.000+00:00",
+        "stateCode": "P_D",
+        "pni": None,
+        "paymentRetryTime": None,
     },
     {
-        "id": 4845649, "label": None, "createdAt": "2026-08-25T21:20:38.507+00:00",
-        "archived": False, "direction": "RECIPIENT", "state": "Doręczona",
-        "pickupDate": None, "consignmentNumber": "PX2320519593", "facilityType": None,
-        "progressPercentage": 100, "archiveCheck": "2026-08-25T21:20:38.507+00:00",
-        "stateDate": "2026-08-13T12:31:53.000+00:00", "stateCode": "P_D",
-        "pni": None, "paymentRetryTime": None,
+        "id": 4845649,
+        "label": None,
+        "createdAt": "2026-08-25T21:20:38.507+00:00",
+        "archived": False,
+        "direction": "RECIPIENT",
+        "state": "Doręczona",
+        "pickupDate": None,
+        "consignmentNumber": "PX2320519593",
+        "facilityType": None,
+        "progressPercentage": 100,
+        "archiveCheck": "2026-08-25T21:20:38.507+00:00",
+        "stateDate": "2026-08-13T12:31:53.000+00:00",
+        "stateCode": "P_D",
+        "pni": None,
+        "paymentRetryTime": None,
     },
 ]
 
 # Synthetic — no in-transit example was available live.
-_IN_TRANSIT = dict(_REAL_RESPONSE[0], state="W doręczeniu", progressPercentage=60,
-                    stateCode="P_T", consignmentNumber="PX9999999999")
+_IN_TRANSIT = dict(
+    _REAL_RESPONSE[0], state="W doręczeniu", progressPercentage=60, stateCode="P_T", consignmentNumber="PX9999999999"
+)
 
 
 def test_normalize_real_delivered_parcels():

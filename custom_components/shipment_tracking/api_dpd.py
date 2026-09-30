@@ -6,6 +6,7 @@ for the recipient package list. This is the *Polish* app backend — NOT the
 GEOPOST myDPD / dpdgroup.com platform (which is email/password). stdlib urllib
 only (blocking — callers run it in an executor). No third-party code copied.
 """
+
 from __future__ import annotations
 
 import json
@@ -70,9 +71,16 @@ class DpdApi:
             except json.JSONDecodeError:
                 return e.code, {"raw": body}
 
-    def _req(self, method: str, url: str, *, token: str | None = None,
-             json_body: dict | None = None, form: dict | None = None,
-             extra_headers: dict | None = None):
+    def _req(
+        self,
+        method: str,
+        url: str,
+        *,
+        token: str | None = None,
+        json_body: dict | None = None,
+        form: dict | None = None,
+        extra_headers: dict | None = None,
+    ):
         headers = {"Accept": "application/json", "User-Agent": DPD_UA}
         data = None
         if json_body is not None:

@@ -1,4 +1,5 @@
 """Śledzenie przesyłek — multi-carrier parcel tracking (InPost, DPD, FedEx, Pocztex, DHL)."""
+
 from __future__ import annotations
 
 import logging
@@ -52,9 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
     # Carrier badges are served over HTTP and pointed at by entity_picture, so
     # the route has to exist before the platforms build their entities.
     await async_register_logos(hass)
-    coordinator: (
-        InPostCoordinator | DpdCoordinator | FedexCoordinator | PocztexCoordinator | DhlCoordinator
-    )
+    coordinator: InPostCoordinator | DpdCoordinator | FedexCoordinator | PocztexCoordinator | DhlCoordinator
     if carrier == CARRIER_DPD:
         coordinator = DpdCoordinator(hass, entry)
     elif carrier == CARRIER_FEDEX:
@@ -73,9 +72,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
 
-    await hass.config_entries.async_forward_entry_setups(
-        entry, PLATFORMS_BY_CARRIER[carrier]
-    )
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS_BY_CARRIER[carrier])
     if carrier == CARRIER_INPOST:
         _async_reload_peers_missing_us(hass, entry)
     return True
@@ -83,9 +80,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> bool:
     """Unload a config entry."""
-    return await hass.config_entries.async_unload_platforms(
-        entry, PLATFORMS_BY_CARRIER[carrier_of(entry)]
-    )
+    return await hass.config_entries.async_unload_platforms(entry, PLATFORMS_BY_CARRIER[carrier_of(entry)])
 
 
 async def async_remove_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> None:
@@ -116,9 +111,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) ->
         ):
             entity_id = registry.async_get_entity_id(platform, DOMAIN, unique_id)
             if entity_id:
-                _LOGGER.debug(
-                    "removing %s — %s account was removed", entity_id, my_phone
-                )
+                _LOGGER.debug("removing %s — %s account was removed", entity_id, my_phone)
                 registry.async_remove(entity_id)
 
 
@@ -173,7 +166,5 @@ def _async_reload_peers_missing_us(hass: HomeAssistant, entry: ShipmentConfigEnt
         unique_id = share_unique_id(str(peer.data[CONF_PHONE]), my_phone)
         if registry.async_get_entity_id(Platform.BUTTON, DOMAIN, unique_id):
             continue
-        _LOGGER.debug(
-            "reloading %s so it gains sharing entities for %s", peer.title, my_phone
-        )
+        _LOGGER.debug("reloading %s so it gains sharing entities for %s", peer.title, my_phone)
         hass.config_entries.async_schedule_reload(peer.entry_id)

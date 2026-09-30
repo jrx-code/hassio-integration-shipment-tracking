@@ -4,6 +4,7 @@ Mirrors the InPost "do odbioru" pattern — one sensor per account whose state i
 the active-parcel count and whose attributes carry the parcel details (active +
 recent delivered), so a card / automation has everything on one entity.
 """
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -89,9 +90,7 @@ class DpdActiveSensor(CoordinatorEntity[DpdCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict:
         data = self.coordinator.data or {}
         counts = data.get("counts", {})
-        limit = int(
-            self.coordinator.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT)
-        )
+        limit = int(self.coordinator.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT))
         return {
             "active_count": counts.get("active", 0),
             "delivered_count": counts.get("delivered", 0),

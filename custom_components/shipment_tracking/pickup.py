@@ -14,6 +14,7 @@ is kept as a fallback (``member_codes``).
 
 Pure/stdlib only — unit-testable without Home Assistant.
 """
+
 from __future__ import annotations
 
 
@@ -31,7 +32,7 @@ def pickup_groups(ready: list[dict]) -> list[dict]:
           "members": list[dict],    # all parcels in the group (rep included)
         }
     """
-    order: list = []          # str uuid (multiskrytka) or dict (standalone)
+    order: list = []  # str uuid (multiskrytka) or dict (standalone)
     by_uuid: dict[str, list[dict]] = {}
     for p in ready:
         uuid = p.get("multi_uuid")

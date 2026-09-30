@@ -6,6 +6,7 @@ only (urllib) — blocking, so callers must run it in an executor. Key gotchas k
 intact: ETag pagination on /v4/parcels/tracked, legacy SMS backend (no captcha),
 304 => NotModified.
 """
+
 from __future__ import annotations
 
 import json
@@ -77,9 +78,16 @@ def _map_parcel(p: dict, state: str) -> dict:
         "open_code": p.get("openCode"),
         "qr": p.get("qrCode"),
         "locker": point.get("name"),
-        "address": " ".join(x for x in [
-            addr.get("street"), addr.get("buildingNumber"), addr.get("city"),
-        ] if x) or point.get("locationDescription"),
+        "address": " ".join(
+            x
+            for x in [
+                addr.get("street"),
+                addr.get("buildingNumber"),
+                addr.get("city"),
+            ]
+            if x
+        )
+        or point.get("locationDescription"),
         "sender": (p.get("sender") or {}).get("name"),
         "expiry": p.get("expiryDate"),
         "stored": p.get("storedDate"),
@@ -117,10 +125,7 @@ def filter_ignored(cat: dict[str, list[dict]], ignored: set[str]) -> dict[str, l
     copying three lists on every poll for nothing would be wasteful."""
     if not ignored:
         return cat
-    return {
-        bucket: [p for p in rows if p.get("shipment") not in ignored]
-        for bucket, rows in cat.items()
-    }
+    return {bucket: [p for p in rows if p.get("shipment") not in ignored] for bucket, rows in cat.items()}
 
 
 class InPostApi:
@@ -153,8 +158,9 @@ class InPostApi:
         h = {"Content-Type": "application/json; charset=UTF-8", "User-Agent": self._ua}
         if token:
             h["Authorization"] = token
-        return self._do(urllib.request.Request(
-            self._base + path, data=json.dumps(body).encode(), headers=h, method="POST"))
+        return self._do(
+            urllib.request.Request(self._base + path, data=json.dumps(body).encode(), headers=h, method="POST")
+        )
 
     def _get(self, path: str, token: str, etag: str | None = None):
         h = {"User-Agent": self._ua, "Authorization": token}
@@ -168,16 +174,16 @@ class InPostApi:
         return st == 200
 
     def verify_sms(self, code: str, prefix: str, value: str) -> tuple[str, str]:
-        st, _h, d = self._post("/v1/account/verification", {
-            "smsCode": str(code), "devicePlatform": "Android",
-            "phoneNumber": {"prefix": prefix, "value": value}})
+        st, _h, d = self._post(
+            "/v1/account/verification",
+            {"smsCode": str(code), "devicePlatform": "Android", "phoneNumber": {"prefix": prefix, "value": value}},
+        )
         if st == 200 and "authToken" in d:
             return d["authToken"], d["refreshToken"]
         raise InPostError(f"verify failed: HTTP {st} {d}")
 
     def refresh(self, refresh_token: str) -> str:
-        st, _h, d = self._post("/v1/authenticate",
-                               {"refreshToken": refresh_token, "phoneOS": "Android"})
+        st, _h, d = self._post("/v1/authenticate", {"refreshToken": refresh_token, "phoneOS": "Android"})
         if st == 200 and "authToken" in d:
             if d.get("reauthenticationRequired"):
                 raise ReauthRequired()
@@ -232,17 +238,17 @@ class InPostApi:
         out: list[dict] = []
         for f in d.get("friends", []):
             phone = f.get("phoneNumber") or {}
-            out.append({
-                "uuid": f.get("uuid"),
-                "name": f.get("name"),
-                "prefix": phone.get("prefix") if isinstance(phone, dict) else None,
-                "phone": _phone_value(phone),
-            })
+            out.append(
+                {
+                    "uuid": f.get("uuid"),
+                    "name": f.get("name"),
+                    "prefix": phone.get("prefix") if isinstance(phone, dict) else None,
+                    "phone": _phone_value(phone),
+                }
+            )
         return out
 
-    def share_parcels(
-        self, auth_token: str, shipments: list[str], friend_uuids: list[str]
-    ) -> None:
+    def share_parcels(self, auth_token: str, shipments: list[str], friend_uuids: list[str]) -> None:
         """Share parcels app-to-app with already-paired friends.
 
         The recipient then sees each parcel in their own /v4/parcels/tracked with
@@ -253,12 +259,7 @@ class InPostApi:
         """
         if not shipments or not friend_uuids:
             return
-        body = {
-            "parcels": [
-                {"shipmentNumber": str(s), "friendUuids": list(friend_uuids)}
-                for s in shipments
-            ]
-        }
+        body = {"parcels": [{"shipmentNumber": str(s), "friendUuids": list(friend_uuids)} for s in shipments]}
         st, _h, d = self._post("/v4/parcels/shared", body, auth_token)
         if st != 200:
             raise InPostError(f"share_parcels failed: HTTP {st} {d}")

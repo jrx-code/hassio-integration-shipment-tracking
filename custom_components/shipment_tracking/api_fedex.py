@@ -9,6 +9,7 @@ returned JWT) and a full Track API round-trip against the sandbox environment
 (mock waybill 449044304137821 — FedEx's own published test number).
 stdlib urllib only (blocking — callers run it in an executor).
 """
+
 from __future__ import annotations
 
 import json
@@ -84,15 +85,12 @@ class FedexApi:
             return []
         if len(tracking_numbers) > FEDEX_MAX_NUMBERS_PER_REQUEST:
             raise FedexError(
-                f"{len(tracking_numbers)} tracking numbers > "
-                f"{FEDEX_MAX_NUMBERS_PER_REQUEST}-per-request FedEx limit"
+                f"{len(tracking_numbers)} tracking numbers > {FEDEX_MAX_NUMBERS_PER_REQUEST}-per-request FedEx limit"
             )
         body = json.dumps(
             {
                 "includeDetailedScans": True,
-                "trackingInfo": [
-                    {"trackingNumberInfo": {"trackingNumber": n}} for n in tracking_numbers
-                ],
+                "trackingInfo": [{"trackingNumberInfo": {"trackingNumber": n}} for n in tracking_numbers],
             }
         ).encode()
         req = urllib.request.Request(

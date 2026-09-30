@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for the InPost carrier."""
+
 from __future__ import annotations
 
 import logging
@@ -17,8 +18,6 @@ from .api import (
     categorize_parcels,
     filter_ignored,
 )
-from .pickup import group_qr_data_url, pickup_groups
-from .share import configured_aliases, entry_by_phone, friend_uuid, shareable
 from .const import (
     CONF_ARCHIVE_LIMIT,
     CONF_IGNORED_SHIPMENTS,
@@ -30,6 +29,8 @@ from .const import (
     DEFAULT_UA,
     DOMAIN,
 )
+from .pickup import group_qr_data_url, pickup_groups
+from .share import configured_aliases, entry_by_phone, friend_uuid, shareable
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,9 +46,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL)
-        update_interval = (
-            timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
-        )
+        update_interval = timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
         super().__init__(
             hass,
             _LOGGER,
@@ -83,9 +82,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             categorize_parcels(parcels),
             set(self.entry.options.get(CONF_IGNORED_SHIPMENTS, [])),
         )
-        cat["archived"].sort(
-            key=lambda p: p.get("stored") or p.get("expiry") or "", reverse=True
-        )
+        cat["archived"].sort(key=lambda p: p.get("stored") or p.get("expiry") or "", reverse=True)
         groups = pickup_groups(cat["ready"])
         for g in groups:
             # rendered here (executor) — segno is blocking; attribute consumers
@@ -128,11 +125,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         `data` overrides the coordinator snapshot — needed during a refresh,
         where self.data is still the previous cycle's.
         """
-        return [
-            s
-            for s in shareable(self.active(data), uuid)
-            if (s, uuid) not in self._shared_marks
-        ]
+        return [s for s in shareable(self.active(data), uuid) if (s, uuid) not in self._shared_marks]
 
     def _share(self, shipments: list[str], uuid: str) -> None:
         """Blocking share — runs in the executor."""
@@ -197,7 +190,10 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             if self.data is not None:
                 return self.data
             return {
-                "ready": [], "pickup_groups": [], "in_transit": [], "archived": [],
+                "ready": [],
+                "pickup_groups": [],
+                "in_transit": [],
+                "archived": [],
                 "counts": {"ready": 0, "in_transit": 0, "archived": 0},
             }
         except InPostError as err:

@@ -1,4 +1,5 @@
 """Config & options flow for Śledzenie przesyłek (InPost, DPD, FedEx, Pocztex)."""
+
 from __future__ import annotations
 
 import logging
@@ -7,7 +8,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -83,9 +83,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         self._email: str = ""
 
     # ------------------------- carrier select -------------------------
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         if user_input is not None:
             self._carrier = user_input[CONF_CARRIER]
             if self._carrier == CARRIER_DPD:
@@ -104,9 +102,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 {
                     vol.Required(CONF_CARRIER, default=CARRIER_INPOST): SelectSelector(
                         SelectSelectorConfig(
-                            options=[
-                                {"value": c, "label": CARRIER_LABELS[c]} for c in CARRIERS
-                            ],
+                            options=[{"value": c, "label": CARRIER_LABELS[c]} for c in CARRIERS],
                             mode=SelectSelectorMode.DROPDOWN,
                         )
                     ),
@@ -115,9 +111,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ----------------------------- InPost -----------------------------
-    async def async_step_inpost(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_inpost(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             self._alias = user_input[CONF_ALIAS].strip()
@@ -129,9 +123,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 await self.async_set_unique_id(f"inpost_{self._phone}")
                 self._abort_if_unique_id_configured()
                 try:
-                    ok = await self.hass.async_add_executor_job(
-                        _inpost_api().send_sms, self._prefix, self._phone
-                    )
+                    ok = await self.hass.async_add_executor_job(_inpost_api().send_sms, self._prefix, self._phone)
                 except InPostError as err:
                     _LOGGER.error("InPost send_sms failed: %s", err)
                     errors["base"] = "cannot_connect"
@@ -145,9 +137,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_ALIAS): str,
-                    vol.Required(
-                        CONF_PREFIX, default=self._prefix or "+48"
-                    ): SelectSelector(
+                    vol.Required(CONF_PREFIX, default=self._prefix or "+48"): SelectSelector(
                         SelectSelectorConfig(
                             options=PREFIX_OPTIONS,
                             mode=SelectSelectorMode.DROPDOWN,
@@ -160,9 +150,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_sms(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_sms(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             code = str(user_input["code"]).strip()
@@ -193,9 +181,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ------------------------------ DPD -------------------------------
-    async def async_step_dpd(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_dpd(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             self._alias = (user_input.get(CONF_ALIAS) or "").strip()
@@ -208,9 +194,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._abort_if_unique_id_configured()
                 self._dpd = DpdApi()
                 try:
-                    ok = await self.hass.async_add_executor_job(
-                        self._dpd.send_sms, self._phone
-                    )
+                    ok = await self.hass.async_add_executor_job(self._dpd.send_sms, self._phone)
                 except DpdError as err:
                     _LOGGER.error("DPD send_sms failed: %s", err)
                     errors["base"] = "cannot_connect"
@@ -230,17 +214,13 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_dpd_sms(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_dpd_sms(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             code = str(user_input["code"]).strip()
             assert self._dpd is not None
             try:
-                _access, refresh_token = await self.hass.async_add_executor_job(
-                    self._dpd.register, self._phone, code
-                )
+                _access, refresh_token = await self.hass.async_add_executor_job(self._dpd.register, self._phone, code)
             except DpdError as err:
                 _LOGGER.warning("DPD register failed: %s", err)
                 errors["base"] = "invalid_code"
@@ -264,9 +244,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ----------------------------- FedEx ------------------------------
-    async def async_step_fedex(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_fedex(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Client ID/Secret only — official OAuth2 API, no SMS step.
 
         Validated by actually minting an access token, not just format
@@ -279,9 +257,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             client_secret = user_input[CONF_CLIENT_SECRET].strip()
             account_number = user_input.get(CONF_ACCOUNT_NUMBER, "").strip()
             try:
-                await self.hass.async_add_executor_job(
-                    FedexApi(client_id, client_secret).get_access_token
-                )
+                await self.hass.async_add_executor_job(FedexApi(client_id, client_secret).get_access_token)
             except FedexError as err:
                 _LOGGER.warning("FedEx OAuth validation failed: %s", err)
                 errors["base"] = "invalid_auth"
@@ -314,9 +290,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ---------------------------- Pocztex ------------------------------
-    async def async_step_pocztex(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_pocztex(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Email+password, existing Pocztex Mobile account required —
         registration is app-only, this integration can't create one.
         Validated by actually logging in (full Keycloak PKCE flow).
@@ -360,9 +334,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 }
                 if self._reauth_entry is not None:
                     return self.async_update_reload_and_abort(self._reauth_entry, data=data)
-                return self.async_create_entry(
-                    title=f"Pocztex — {self._alias or self._email}", data=data
-                )
+                return self.async_create_entry(title=f"Pocztex — {self._alias or self._email}", data=data)
 
         return self.async_show_form(
             step_id="pocztex",
@@ -377,9 +349,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ------------------------------ DHL --------------------------------
-    async def async_step_dhl(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_dhl(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             self._alias = (user_input.get(CONF_ALIAS) or "").strip()
@@ -392,9 +362,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                     self._abort_if_unique_id_configured()
                 self._dhl = DhlApi()
                 try:
-                    ok = await self.hass.async_add_executor_job(
-                        self._dhl.send_sms, self._phone
-                    )
+                    ok = await self.hass.async_add_executor_job(self._dhl.send_sms, self._phone)
                 except DhlError as err:
                     _LOGGER.error("DHL send_sms failed: %s", err)
                     errors["base"] = "cannot_connect"
@@ -414,9 +382,7 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
-    async def async_step_dhl_sms(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_dhl_sms(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             code = str(user_input["code"]).strip()
@@ -450,12 +416,8 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
         )
 
     # ------------------------------ reauth ----------------------------
-    async def async_step_reauth(
-        self, entry_data: Mapping[str, Any]
-    ) -> ConfigFlowResult:
-        self._reauth_entry = self.hass.config_entries.async_get_entry(
-            self.context["entry_id"]
-        )
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> ConfigFlowResult:
+        self._reauth_entry = self.hass.config_entries.async_get_entry(self.context["entry_id"])
         self._carrier = entry_data.get(CONF_CARRIER, CARRIER_INPOST)
         self._alias = entry_data.get(CONF_ALIAS, "")
         self._prefix = entry_data.get(CONF_PREFIX, "+48")
@@ -467,30 +429,22 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
             return await self.async_step_pocztex()
         return await self.async_step_reauth_confirm()
 
-    async def async_step_reauth_confirm(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_reauth_confirm(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
                 if self._carrier == CARRIER_DPD:
                     self._dpd = DpdApi()
-                    ok = await self.hass.async_add_executor_job(
-                        self._dpd.send_sms, self._phone
-                    )
+                    ok = await self.hass.async_add_executor_job(self._dpd.send_sms, self._phone)
                     if ok:
                         return await self.async_step_dpd_sms()
                 elif self._carrier == CARRIER_DHL:
                     self._dhl = DhlApi()
-                    ok = await self.hass.async_add_executor_job(
-                        self._dhl.send_sms, self._phone
-                    )
+                    ok = await self.hass.async_add_executor_job(self._dhl.send_sms, self._phone)
                     if ok:
                         return await self.async_step_dhl_sms()
                 else:
-                    ok = await self.hass.async_add_executor_job(
-                        _inpost_api().send_sms, self._prefix, self._phone
-                    )
+                    ok = await self.hass.async_add_executor_job(_inpost_api().send_sms, self._prefix, self._phone)
                     if ok:
                         return await self.async_step_sms()
             except (InPostError, DpdError, DhlError) as err:
@@ -527,9 +481,7 @@ class ShipmentOptionsFlow(OptionsFlow):
     API has no known delete/hide endpoint to actually remove it upstream.
     """
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> ConfigFlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         carrier = self.config_entry.data.get(CONF_CARRIER)
         needs_numbers = carrier == CARRIER_FEDEX
         needs_ignore_list = carrier == CARRIER_INPOST
@@ -537,37 +489,35 @@ class ShipmentOptionsFlow(OptionsFlow):
             data = dict(user_input)
             if needs_numbers:
                 raw = data.pop("tracking_numbers_csv", "")
-                data[CONF_TRACKING_NUMBERS] = [
-                    n.strip() for n in raw.split(",") if n.strip()
-                ]
+                data[CONF_TRACKING_NUMBERS] = [n.strip() for n in raw.split(",") if n.strip()]
             if needs_ignore_list:
                 raw = data.pop("ignored_shipments_csv", "")
-                data[CONF_IGNORED_SHIPMENTS] = [
-                    n.strip() for n in raw.split(",") if n.strip()
-                ]
+                data[CONF_IGNORED_SHIPMENTS] = [n.strip() for n in raw.split(",") if n.strip()]
             return self.async_create_entry(title="", data=data)
 
         opts = self.config_entry.options
         schema: dict[Any, Any] = {
-            vol.Optional(
-                CONF_SCAN_INTERVAL, default=opts.get(CONF_SCAN_INTERVAL, 15)
-            ): vol.All(vol.Coerce(int), vol.Range(min=5, max=180)),
+            vol.Optional(CONF_SCAN_INTERVAL, default=opts.get(CONF_SCAN_INTERVAL, 15)): vol.All(
+                vol.Coerce(int), vol.Range(min=5, max=180)
+            ),
             vol.Optional(
                 CONF_ARCHIVE_LIMIT,
                 default=opts.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT),
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
-                CONF_NOTIFY, default=opts.get(CONF_NOTIFY, True)
-            ): bool,
+            vol.Optional(CONF_NOTIFY, default=opts.get(CONF_NOTIFY, True)): bool,
         }
         if needs_numbers:
-            schema[vol.Optional(
-                "tracking_numbers_csv",
-                default=", ".join(opts.get(CONF_TRACKING_NUMBERS, [])),
-            )] = str
+            schema[
+                vol.Optional(
+                    "tracking_numbers_csv",
+                    default=", ".join(opts.get(CONF_TRACKING_NUMBERS, [])),
+                )
+            ] = str
         if needs_ignore_list:
-            schema[vol.Optional(
-                "ignored_shipments_csv",
-                default=", ".join(opts.get(CONF_IGNORED_SHIPMENTS, [])),
-            )] = str
+            schema[
+                vol.Optional(
+                    "ignored_shipments_csv",
+                    default=", ".join(opts.get(CONF_IGNORED_SHIPMENTS, [])),
+                )
+            ] = str
         return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))

@@ -6,6 +6,7 @@ with that peer; the peer's own InPost account (and therefore their sensors, QR
 image entities and cards) picks them up on its next poll. DPD accounts under the
 same multi-carrier domain never get one — sharing is InPost-only.
 """
+
 from __future__ import annotations
 
 import logging
@@ -31,9 +32,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        InPostShareButton(coordinator, peer) for peer in peer_entries(hass, entry)
-    )
+    async_add_entities(InPostShareButton(coordinator, peer) for peer in peer_entries(hass, entry))
 
 
 class InPostShareButton(InPostEntity, ButtonEntity):
@@ -58,10 +57,7 @@ class InPostShareButton(InPostEntity, ButtonEntity):
         Pairing is a one-off done in the InPost app (invitation code); it cannot
         be driven from here, so an unpaired peer is a dead button, not an error.
         """
-        return (
-            super().available
-            and self.coordinator.friend_uuid_for(self._peer_phone) is not None
-        )
+        return super().available and self.coordinator.friend_uuid_for(self._peer_phone) is not None
 
     @property
     def extra_state_attributes(self) -> dict:
@@ -77,9 +73,7 @@ class InPostShareButton(InPostEntity, ButtonEntity):
         try:
             shipments = await self.coordinator.async_share_with(self._peer_phone)
         except InPostError as err:
-            raise HomeAssistantError(
-                f"Nie udało się udostępnić paczek do {self._peer_alias}: {err}"
-            ) from err
+            raise HomeAssistantError(f"Nie udało się udostępnić paczek do {self._peer_alias}: {err}") from err
         if not shipments:
             _LOGGER.debug("nothing to share with %s", self._peer_alias)
             return

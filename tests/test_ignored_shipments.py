@@ -3,6 +3,7 @@
 Pure-logic tests — no Home Assistant runtime needed:
     python3 -m pytest tests/test_ignored_shipments.py -q
 """
+
 import sys
 import types
 from pathlib import Path

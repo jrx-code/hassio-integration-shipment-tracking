@@ -133,6 +133,10 @@ DEFAULT_UA = "InPost-Mobile/3.23.0(32300001) (Android 9; unknown; unknown unknow
 READY = {
     "READY_TO_PICKUP", "READY_TO_PICKUP_FROM_POK",
     "READY_TO_PICKUP_FROM_BRANCH", "STACK_IN_BOX_MACHINE",
+    # Still sitting in a temporary locker after the storage window; InPost's
+    # statusGroup stays TO_PICKUP and openCode/qrCode remain valid (issue #3).
+    "STACK_PARCEL_IN_BOX_MACHINE_PICKUP_TIME_EXPIRED",
+    "PICKUP_REMINDER_SENT",
 }
 IN_TRANSIT = {
     "CONFIRMED", "ADOPTED_AT_SOURCE_BRANCH", "SENT_FROM_SOURCE_BRANCH",
@@ -159,6 +163,8 @@ STATUS_PL = {
     "DELIVERED": "Odebrana", "PICKUP_TIME_EXPIRED": "Czas odbioru minął",
     "CANCELED": "Anulowana", "RETURNED_TO_SENDER": "Zwrócona do nadawcy",
     "AVIZO": "Awizowana", "CLAIMED": "Reklamacja", "UNSTACK_FROM_BOX_MACHINE": "Wyjęta ze skrytki",
+    "STACK_PARCEL_IN_BOX_MACHINE_PICKUP_TIME_EXPIRED": "Upłynął termin w skrytce",
+    "PICKUP_REMINDER_SENT": "Przypomnienie o odbiorze",
 }
 
 
@@ -177,17 +183,29 @@ def status_pl(status: str) -> str:
 INPOST_TERMINAL = {"archived"}
 
 
-def inpost_canonical(raw: str) -> str:
-    """Map a raw InPost status to its canonical bucket (ready/in_transit/archived)."""
+def inpost_canonical(raw: str, status_group: str | None = None) -> str:
+    """Map a raw InPost status to its canonical bucket (ready/in_transit/archived).
+
+    Known raw statuses stay in their tables. Unknown ones fall back to InPost's
+    own ``statusGroup`` (``TO_PICKUP`` → ready, anything else → in_transit)
+    instead of silently archiving — the DHL safer default: better to show an
+    extra parcel than to hide a collectible one (issue #3).
+    """
     if raw in READY:
         return "ready"
     if raw in IN_TRANSIT:
         return "in_transit"
-    return "archived"
+    if raw in ARCHIVED:
+        return "archived"
+    group = (status_group or "").strip().upper()
+    if group == "TO_PICKUP":
+        return "ready"
+    # Unknown raw + unknown/absent group: keep visible as in transit.
+    return "in_transit"
 
 
-def inpost_is_active(raw: str) -> bool:
-    return inpost_canonical(raw) not in INPOST_TERMINAL
+def inpost_is_active(raw: str, status_group: str | None = None) -> bool:
+    return inpost_canonical(raw, status_group) not in INPOST_TERMINAL
 
 
 # ============================ DPD =============================

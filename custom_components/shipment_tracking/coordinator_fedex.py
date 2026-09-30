@@ -5,6 +5,7 @@ Client ID/Secret pair plus a user-maintained list of tracking numbers
 (options, editable without reauth since it's not a credential). No numbers
 configured means nothing to track yet, not an error.
 """
+
 from __future__ import annotations
 
 import logging
@@ -54,8 +55,7 @@ def normalize_parcel(result: dict) -> dict | None:
     recv_addr = (r.get("recipientInformation") or {}).get("address") or {}
     service = r.get("serviceDetail") or {}
     return {
-        "number": (r.get("trackingNumberInfo") or {}).get("trackingNumber")
-        or result.get("trackingNumber"),
+        "number": (r.get("trackingNumberInfo") or {}).get("trackingNumber") or result.get("trackingNumber"),
         "status": fedex_status_pl(derived, text),
         "status_raw": text,
         "derived_code": derived,
@@ -74,9 +74,7 @@ class FedexCoordinator(DataUpdateCoordinator[dict]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL)
-        update_interval = (
-            timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
-        )
+        update_interval = timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
         super().__init__(
             hass,
             _LOGGER,

@@ -4,6 +4,7 @@ Mirrors the DPD sensor shape — one sensor whose state is the active-parcel
 count and whose attributes carry the parcel details (active + recent
 delivered), so a card / automation has everything on one entity.
 """
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -19,8 +20,8 @@ from .const import (
     DEFAULT_ARCHIVE_LIMIT,
     DOMAIN,
 )
-from .logos import logo_url
 from .coordinator_dhl import DhlCoordinator
+from .logos import logo_url
 
 
 async def async_setup_dhl_sensors(
@@ -71,9 +72,7 @@ class DhlActiveSensor(CoordinatorEntity[DhlCoordinator], SensorEntity):
     def extra_state_attributes(self) -> dict:
         data = self.coordinator.data or {}
         counts = data.get("counts", {})
-        limit = int(
-            self.coordinator.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT)
-        )
+        limit = int(self.coordinator.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT))
         return {
             "active_count": counts.get("active", 0),
             "delivered_count": counts.get("delivered", 0),

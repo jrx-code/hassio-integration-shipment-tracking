@@ -7,6 +7,7 @@ endpoint (list-level mps only carries the count, not the sibling waybills).
 
     python3 -m pytest tests/test_dpd_normalize.py -q
 """
+
 import sys
 import types
 from pathlib import Path

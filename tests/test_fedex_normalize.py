@@ -9,6 +9,7 @@ session — see the comment in const.py.
 
     python3 -m pytest tests/test_fedex_normalize.py -q
 """
+
 import sys
 import types
 from pathlib import Path
@@ -70,9 +71,7 @@ _SANDBOX_RESULT = {
                 "statusByLocale": "Initiated",
                 "description": "Shipment information sent to FedEx",
             },
-            "shipperInformation": {
-                "address": {"city": "JEFFERSONVILLE", "countryCode": "US"}
-            },
+            "shipperInformation": {"address": {"city": "JEFFERSONVILLE", "countryCode": "US"}},
             "recipientInformation": {"address": {"city": "Miami", "countryCode": "US"}},
             "serviceDetail": {"type": "GROUND_HOME_DELIVERY", "description": "FedEx Home Delivery"},
             "scanEvents": [

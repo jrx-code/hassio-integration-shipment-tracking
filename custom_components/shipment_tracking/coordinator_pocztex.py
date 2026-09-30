@@ -28,6 +28,7 @@ entry.data only for entries that predate this fix (harmless, unused).
 DPD does NOT have this problem — its refresh_token was verified
 non-expiring/reusable, a genuinely different case.
 """
+
 from __future__ import annotations
 
 import logging
@@ -73,9 +74,7 @@ class PocztexCoordinator(DataUpdateCoordinator[dict]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL)
-        update_interval = (
-            timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
-        )
+        update_interval = timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
         super().__init__(
             hass,
             _LOGGER,
@@ -89,9 +88,7 @@ class PocztexCoordinator(DataUpdateCoordinator[dict]):
         """Blocking fetch — runs in the executor. Full login every poll, not
         refresh — see module docstring for why refresh() alone can't work
         here."""
-        access, _refresh = self._api.login(
-            self.entry.data[CONF_EMAIL], self.entry.data.get(CONF_PASSWORD)
-        )
+        access, _refresh = self._api.login(self.entry.data[CONF_EMAIL], self.entry.data.get(CONF_PASSWORD))
         parcels = [normalize_parcel(p) for p in self._api.get_parcels(access)]
         active = [p for p in parcels if p["active"]]
         delivered = [p for p in parcels if not p["active"]]

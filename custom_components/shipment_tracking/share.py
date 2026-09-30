@@ -11,6 +11,7 @@ scoped to CARRIER_INPOST entries, even though DOMAIN is shared with DPD under
 the multi-carrier umbrella — otherwise a DPD account with the same phone number
 (same person, two apps) would be picked up as an InPost peer/alias by mistake.
 """
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
@@ -41,10 +42,7 @@ def peer_entries(hass: HomeAssistant, entry: ConfigEntry) -> list[ConfigEntry]:
     return [
         e
         for e in _inpost_entries(hass)
-        if e.entry_id != entry.entry_id
-        and e.disabled_by is None
-        and e.source != "ignore"
-        and e.data.get(CONF_PHONE)
+        if e.entry_id != entry.entry_id and e.disabled_by is None and e.source != "ignore" and e.data.get(CONF_PHONE)
     ]
 
 
@@ -154,9 +152,7 @@ def shared_in(parcels: list[dict]) -> list[dict]:
     return [p for p in parcels or [] if p.get("ownership") in ("FRIEND", "OBSERVED")]
 
 
-def owner_label(
-    parcel: dict, friends: list[dict], aliases: dict[str, str] | None = None
-) -> str | None:
+def owner_label(parcel: dict, friends: list[dict], aliases: dict[str, str] | None = None) -> str | None:
     """Who shared this parcel with us — best name available, else the number.
 
     The sharing account stays in the parcel's ``receiver``. An alias from another

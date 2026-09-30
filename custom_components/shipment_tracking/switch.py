@@ -12,6 +12,7 @@ State lives in the entity (RestoreEntity), deliberately not in entry options: th
 integration reloads itself on option updates, so a toggle would tear down the
 whole account setup.
 """
+
 from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
@@ -33,9 +34,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        InPostAutoShareSwitch(coordinator, peer) for peer in peer_entries(hass, entry)
-    )
+    async_add_entities(InPostAutoShareSwitch(coordinator, peer) for peer in peer_entries(hass, entry))
 
 
 class InPostAutoShareSwitch(InPostEntity, SwitchEntity, RestoreEntity):
@@ -69,10 +68,7 @@ class InPostAutoShareSwitch(InPostEntity, SwitchEntity, RestoreEntity):
 
     @property
     def available(self) -> bool:
-        return (
-            super().available
-            and self.coordinator.friend_uuid_for(self._peer_phone) is not None
-        )
+        return super().available and self.coordinator.friend_uuid_for(self._peer_phone) is not None
 
     @property
     def extra_state_attributes(self) -> dict:

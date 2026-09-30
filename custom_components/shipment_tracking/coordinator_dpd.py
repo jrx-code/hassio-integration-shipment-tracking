@@ -1,4 +1,5 @@
 """DataUpdateCoordinator for the DPD carrier."""
+
 from __future__ import annotations
 
 import logging
@@ -49,7 +50,7 @@ def normalize_parcel(p: dict, detail: dict | None = None) -> dict:
     }
     if detail:
         sender_addr = (detail.get("sender") or {}).get("address") or {}
-        point = (detail.get("delivery_point") or {})
+        point = detail.get("delivery_point") or {}
         delivery = detail.get("delivery") or {}
         mps = detail.get("mps") or {}
         siblings = [
@@ -63,12 +64,15 @@ def normalize_parcel(p: dict, detail: dict | None = None) -> dict:
         row.update(
             {
                 "sender_address": ", ".join(
-                    x for x in (sender_addr.get("address"), sender_addr.get("postal_code"),
-                                sender_addr.get("city")) if x
-                ) or None,
+                    x
+                    for x in (sender_addr.get("address"), sender_addr.get("postal_code"), sender_addr.get("city"))
+                    if x
+                )
+                or None,
                 "delivery_gps": (
                     {"lat": point.get("latitude"), "lon": point.get("longitude")}
-                    if point.get("latitude") and point.get("longitude") else None
+                    if point.get("latitude") and point.get("longitude")
+                    else None
                 ),
                 "courier_name": delivery.get("courier_name"),
                 "courier_phone": delivery.get("courier_phone"),
@@ -94,9 +98,7 @@ class DpdCoordinator(DataUpdateCoordinator[dict]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL)
-        update_interval = (
-            timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
-        )
+        update_interval = timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
         super().__init__(
             hass,
             _LOGGER,

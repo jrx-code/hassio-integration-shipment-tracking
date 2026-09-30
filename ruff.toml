@@ -1,0 +1,7 @@
+# CI baseline paired with .github/workflows/validate.yml
+target-version = "py312"
+line-length = 120
+
+[lint]
+# Gate on obvious bugs + import order. Line length / bandit left for a later pass.
+select = ["E4", "E7", "E9", "F", "I"]

@@ -12,6 +12,7 @@ version crashed here 2026-08-25 for DPD entries (InPostSharedSensor calls
 coordinator.active(), which only InPostCoordinator has — AttributeError on
 DpdCoordinator) before any DPD account had actually been onboarded to catch it.
 """
+
 from __future__ import annotations
 
 from homeassistant.components.sensor import SensorEntity, SensorStateClass
@@ -70,8 +71,12 @@ async def async_setup_entry(
         [
             InPostReadySensor(coordinator),
             InPostCountSensor(
-                coordinator, "w_drodze", "W drodze", "in_transit",
-                "mdi:truck-delivery", own=True,
+                coordinator,
+                "w_drodze",
+                "W drodze",
+                "in_transit",
+                "mdi:truck-delivery",
+                own=True,
             ),
             InPostSharedSensor(coordinator),
             InPostArchiveSensor(coordinator),
@@ -129,9 +134,7 @@ class InPostCountSensor(InPostEntity, SensorEntity):
     _attr_state_class = SensorStateClass.MEASUREMENT
     _attr_native_unit_of_measurement = "szt."
 
-    def __init__(
-        self, coordinator, key: str, name: str, bucket: str, icon: str, own: bool = False
-    ) -> None:
+    def __init__(self, coordinator, key: str, name: str, bucket: str, icon: str, own: bool = False) -> None:
         super().__init__(coordinator, key)
         self._bucket = bucket
         self._own = own
@@ -182,9 +185,7 @@ class InPostSharedSensor(InPostEntity, SensorEntity):
         return {
             "udostepnione_count": len(incoming),
             "moje_udostepnione_count": len(outgoing),
-            "udostepnione": shared_in_attrs(
-                incoming, self.coordinator.friends, self.coordinator.aliases
-            ),
+            "udostepnione": shared_in_attrs(incoming, self.coordinator.friends, self.coordinator.aliases),
             "moje_udostepnione": shared_out_attrs(outgoing),
         }
 

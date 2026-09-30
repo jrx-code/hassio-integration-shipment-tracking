@@ -1,4 +1,5 @@
 """Shared entity base + parcel->attribute mapping for the InPost carrier."""
+
 from __future__ import annotations
 
 from homeassistant.helpers.device_registry import DeviceInfo
@@ -61,9 +62,7 @@ def ready_attrs(groups: list[dict]) -> list[dict]:
                 "kody_fallback": [m.get("open_code") for m in members] if multi else None,
                 # App-to-app sharing state, per group leader.
                 "wlasciciel": rep.get("ownership"),
-                "udostepniona_do": [
-                    s.get("name") for s in rep.get("shared_to") or []
-                ],
+                "udostepniona_do": [s.get("name") for s in rep.get("shared_to") or []],
                 "mozna_udostepnic": bool(rep.get("can_share")),
             }
         )
@@ -97,9 +96,7 @@ def shared_out_attrs(parcels: list[dict]) -> list[dict]:
     ]
 
 
-def shared_in_attrs(
-    parcels: list[dict], friends: list[dict], aliases: dict[str, str] | None = None
-) -> list[dict]:
+def shared_in_attrs(parcels: list[dict], friends: list[dict], aliases: dict[str, str] | None = None) -> list[dict]:
     """`otrzymane[]` — parcels somebody shared with us.
 
     ``podglad`` marks an OBSERVED share, where InPost withholds the pickup code.

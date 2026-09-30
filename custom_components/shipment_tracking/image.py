@@ -12,6 +12,7 @@ Notification-agnostic: any card can show the entity picture; the parcel details
 (number, code, multiskrytka members) live on the slot's attributes and on the
 ``sensor.*_do_odbioru`` entity.
 """
+
 from __future__ import annotations
 
 import io
@@ -35,9 +36,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data
-    async_add_entities(
-        InPostQrImage(hass, coordinator, slot) for slot in range(QR_SLOTS)
-    )
+    async_add_entities(InPostQrImage(hass, coordinator, slot) for slot in range(QR_SLOTS))
 
 
 class InPostQrImage(CoordinatorEntity[InPostCoordinator], ImageEntity):
@@ -46,9 +45,7 @@ class InPostQrImage(CoordinatorEntity[InPostCoordinator], ImageEntity):
     _attr_has_entity_name = True
     _attr_content_type = "image/png"
 
-    def __init__(
-        self, hass: HomeAssistant, coordinator: InPostCoordinator, slot: int
-    ) -> None:
+    def __init__(self, hass: HomeAssistant, coordinator: InPostCoordinator, slot: int) -> None:
         CoordinatorEntity.__init__(self, coordinator)
         ImageEntity.__init__(self, hass)
         self._slot = slot

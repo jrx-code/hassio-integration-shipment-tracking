@@ -21,6 +21,7 @@ The static path is public — no auth, like any other frontend asset. These are
 logos, nothing account-specific: the QR codes, which ARE account-specific, keep
 going through the ``image`` platform with its signed paths.
 """
+
 from __future__ import annotations
 
 import logging
@@ -64,7 +65,5 @@ async def async_register(hass: HomeAssistant) -> None:
     if hass.data.get(_REGISTERED):
         return
     hass.data[_REGISTERED] = True
-    await hass.http.async_register_static_paths(
-        [StaticPathConfig(URL_BASE, str(_DIR), cache_headers=True)]
-    )
+    await hass.http.async_register_static_paths([StaticPathConfig(URL_BASE, str(_DIR), cache_headers=True)])
     _LOGGER.debug("carrier logos served from %s at %s", _DIR, URL_BASE)

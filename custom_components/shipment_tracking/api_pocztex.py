@@ -24,6 +24,7 @@ there's no SMS-resend equivalent here).
 stdlib urllib only (blocking — callers run it in an executor). No
 third-party OAuth/OIDC library, no code copied.
 """
+
 from __future__ import annotations
 
 import base64
@@ -39,7 +40,6 @@ import urllib.parse
 import urllib.request
 
 from .const import (
-    POCZTEX_APP_URL,
     POCZTEX_CLIENT_ID,
     POCZTEX_IDM_URL,
     POCZTEX_REALM,
@@ -60,9 +60,7 @@ class PocztexAuthError(PocztexError):
 
 def _pkce_pair() -> tuple[str, str]:
     verifier = base64.urlsafe_b64encode(secrets.token_bytes(32)).rstrip(b"=").decode()
-    challenge = base64.urlsafe_b64encode(
-        hashlib.sha256(verifier.encode()).digest()
-    ).rstrip(b"=").decode()
+    challenge = base64.urlsafe_b64encode(hashlib.sha256(verifier.encode()).digest()).rstrip(b"=").decode()
     return verifier, challenge
 
 
@@ -80,9 +78,9 @@ class PocztexApi:
         (fragment-mode), which we need to read ourselves, not chase."""
         if self._ctx is None:
             self._ctx = ssl.create_default_context()
-        no_redirect = type("NoRedirect", (urllib.request.HTTPRedirectHandler,), {
-            "redirect_request": lambda self, *a, **kw: None
-        })
+        no_redirect = type(
+            "NoRedirect", (urllib.request.HTTPRedirectHandler,), {"redirect_request": lambda self, *a, **kw: None}
+        )
         return urllib.request.build_opener(
             urllib.request.HTTPCookieProcessor(jar),
             urllib.request.HTTPSHandler(context=self._ctx),
@@ -98,21 +96,18 @@ class PocztexApi:
         state = secrets.token_urlsafe(16)
         nonce = secrets.token_urlsafe(16)
 
-        auth_url = (
-            f"{POCZTEX_IDM_URL}/realms/{POCZTEX_REALM}/protocol/openid-connect/auth?"
-            + urllib.parse.urlencode(
-                {
-                    "client_id": POCZTEX_CLIENT_ID,
-                    "redirect_uri": POCZTEX_REDIRECT_URI,
-                    "state": state,
-                    "response_mode": "fragment",
-                    "response_type": "code",
-                    "scope": "openid",
-                    "nonce": nonce,
-                    "code_challenge": challenge,
-                    "code_challenge_method": "S256",
-                }
-            )
+        auth_url = f"{POCZTEX_IDM_URL}/realms/{POCZTEX_REALM}/protocol/openid-connect/auth?" + urllib.parse.urlencode(
+            {
+                "client_id": POCZTEX_CLIENT_ID,
+                "redirect_uri": POCZTEX_REDIRECT_URI,
+                "state": state,
+                "response_mode": "fragment",
+                "response_type": "code",
+                "scope": "openid",
+                "nonce": nonce,
+                "code_challenge": challenge,
+                "code_challenge_method": "S256",
+            }
         )
         try:
             with opener.open(auth_url, timeout=25) as r:
@@ -125,9 +120,7 @@ class PocztexApi:
             raise PocztexError("login form action not found in Keycloak page")
         action = html.unescape(m.group(1))
 
-        form = urllib.parse.urlencode(
-            {"username": email, "password": password, "credentialId": ""}
-        ).encode()
+        form = urllib.parse.urlencode({"username": email, "password": password, "credentialId": ""}).encode()
         req = urllib.request.Request(
             action,
             data=form,
@@ -158,7 +151,10 @@ class PocztexApi:
         return self._exchange(code=code, code_verifier=verifier)
 
     def _exchange(
-        self, *, code: str | None = None, refresh_token: str | None = None,
+        self,
+        *,
+        code: str | None = None,
+        refresh_token: str | None = None,
         code_verifier: str | None = None,
     ) -> tuple[str, str]:
         if self._ctx is None:

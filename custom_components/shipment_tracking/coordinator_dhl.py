@@ -30,6 +30,7 @@ jar is not written, and a restart inside the first poll interval after a
 reauth restores the login-time jar — which is fine as long as it is younger
 than 30 minutes, and it always is at that point.
 """
+
 from __future__ import annotations
 
 import logging
@@ -90,9 +91,7 @@ class DhlCoordinator(DataUpdateCoordinator[dict]):
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         interval = entry.options.get(CONF_SCAN_INTERVAL)
-        update_interval = (
-            timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
-        )
+        update_interval = timedelta(minutes=int(interval)) if interval else DEFAULT_SCAN_INTERVAL
         if update_interval > DHL_MAX_INTERVAL:
             # Not a preference — the poll IS the keepalive (see module
             # docstring). A longer interval hands the user an SMS prompt
@@ -100,7 +99,9 @@ class DhlCoordinator(DataUpdateCoordinator[dict]):
             _LOGGER.warning(
                 "DHL scan interval %s exceeds the session's %s lifetime — "
                 "clamping to %s, otherwise the session expires between polls",
-                update_interval, DHL_TOKEN_LIFETIME, DHL_MAX_INTERVAL,
+                update_interval,
+                DHL_TOKEN_LIFETIME,
+                DHL_MAX_INTERVAL,
             )
             update_interval = DHL_MAX_INTERVAL
         super().__init__(
@@ -148,9 +149,7 @@ class DhlCoordinator(DataUpdateCoordinator[dict]):
         if not cookies or cookies == self.entry.data.get(CONF_COOKIES):
             return
         _LOGGER.debug("DHL cookie jar rotated — persisting %d cookies", len(cookies))
-        self.hass.config_entries.async_update_entry(
-            self.entry, data={**self.entry.data, CONF_COOKIES: cookies}
-        )
+        self.hass.config_entries.async_update_entry(self.entry, data={**self.entry.data, CONF_COOKIES: cookies})
 
     async def _async_update_data(self) -> dict:
         try:

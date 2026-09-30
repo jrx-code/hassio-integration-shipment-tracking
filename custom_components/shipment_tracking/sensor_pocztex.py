@@ -19,8 +19,8 @@ from .const import (
     DEFAULT_ARCHIVE_LIMIT,
     DOMAIN,
 )
-from .logos import logo_url
 from .coordinator_pocztex import PocztexCoordinator
+from .logos import logo_url
 
 
 async def async_setup_pocztex_sensors(

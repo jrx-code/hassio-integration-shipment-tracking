@@ -7,7 +7,6 @@ from collections.abc import Mapping
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant.config_entries import (
     ConfigEntry,
     ConfigFlow,
@@ -27,6 +26,13 @@ from .api_dhl import DhlApi, DhlAuthError, DhlError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
 from .api_pocztex import PocztexApi, PocztexAuthError, PocztexError
+from .carriers_orlen_allegro import (
+    CARRIER_ALLEGRO_ONE,
+    CARRIER_LABEL_ALLEGRO_ONE,
+    CARRIER_LABEL_ORLEN,
+    CARRIER_ORLEN,
+)
+from .config_flow_orlen_allegro import OrlenAllegroOneFlowMixin
 from .const import (
     CARRIER_DHL,
     CARRIER_DPD,
@@ -67,7 +73,7 @@ def _inpost_api() -> InPostApi:
     return InPostApi(DEFAULT_BASE, DEFAULT_UA)
 
 
-class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
+class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
     """Carrier select → per-carrier SMS onboarding."""
 
     VERSION = 1
@@ -96,6 +102,10 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                 return await self.async_step_pocztex()
             if self._carrier == CARRIER_DHL:
                 return await self.async_step_dhl()
+            if self._carrier == CARRIER_ORLEN:
+                return await self.async_step_orlen()
+            if self._carrier == CARRIER_ALLEGRO_ONE:
+                return await self.async_step_allegro_one()
             return await self.async_step_inpost()
 
         return self.async_show_form(
@@ -106,6 +116,12 @@ class ShipmentConfigFlow(ConfigFlow, domain=DOMAIN):
                         SelectSelectorConfig(
                             options=[
                                 {"value": c, "label": CARRIER_LABELS[c]} for c in CARRIERS
+                            ]
+                            # Kept out of const.CARRIERS on purpose: both are
+                            # track-by-number, see carriers_orlen_allegro.py.
+                            + [
+                                {"value": CARRIER_ORLEN, "label": CARRIER_LABEL_ORLEN},
+                                {"value": CARRIER_ALLEGRO_ONE, "label": CARRIER_LABEL_ALLEGRO_ONE},
                             ],
                             mode=SelectSelectorMode.DROPDOWN,
                         )
@@ -531,7 +547,7 @@ class ShipmentOptionsFlow(OptionsFlow):
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         carrier = self.config_entry.data.get(CONF_CARRIER)
-        needs_numbers = carrier == CARRIER_FEDEX
+        needs_numbers = carrier in (CARRIER_FEDEX, CARRIER_ORLEN, CARRIER_ALLEGRO_ONE)
         needs_ignore_list = carrier == CARRIER_INPOST
         if user_input is not None:
             data = dict(user_input)

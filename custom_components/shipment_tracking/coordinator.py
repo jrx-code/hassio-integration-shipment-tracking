@@ -17,8 +17,6 @@ from .api import (
     categorize_parcels,
     filter_ignored,
 )
-from .pickup import group_qr_data_url, pickup_groups
-from .share import configured_aliases, entry_by_phone, friend_uuid, shareable
 from .const import (
     CONF_ARCHIVE_LIMIT,
     CONF_IGNORED_SHIPMENTS,
@@ -30,6 +28,8 @@ from .const import (
     DEFAULT_UA,
     DOMAIN,
 )
+from .pickup import group_qr_data_url, pickup_groups
+from .share import configured_aliases, entry_by_phone, friend_uuid, shareable
 
 _LOGGER = logging.getLogger(__name__)
 

@@ -40,6 +40,11 @@ _REGISTERED = f"{DOMAIN}_logos_registered"
 # Carriers whose badge ships with the integration. A carrier missing here simply
 # keeps its mdi icon — never a broken image.
 AVAILABLE = {"inpost", "dpd", "fedex", "pocztex", "dhl", "gls"}
+# Orlen Paczka + Allegro One: no local badge PNG (avoid vendoring trademarked
+# brand marks without a clear license). Sensors use mdi:truck-delivery;
+# logo_url("orlen"|"allegro_one") returns None so entity_picture stays unset.
+# Add orlen.png / allegro_one.png here and extend AVAILABLE only when assets
+# are freely usable and match the existing 256² round-safe badge pattern.
 
 # Cache buster. The static route is registered with month-long cache headers, so
 # a redrawn badge under the same file name would keep showing the old picture in

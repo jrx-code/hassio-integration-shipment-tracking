@@ -54,6 +54,7 @@ def ready_attrs(groups: list[dict]) -> list[dict]:
                 "paczkomat": rep.get("locker"),
                 "adres": rep.get("address"),
                 "termin_odbioru": rep.get("expiry"),
+                "status": status_pl(rep.get("status")),
                 "qr": rep.get("qr"),
                 "qr_url": g.get("qr_url"),
                 "multiskrytka": g.get("count") if multi else None,
@@ -65,6 +66,9 @@ def ready_attrs(groups: list[dict]) -> list[dict]:
                     s.get("name") for s in rep.get("shared_to") or []
                 ],
                 "mozna_udostepnic": bool(rep.get("can_share")),
+                # Newest InPost events[] title/description (issue #3).
+                "tytul_zdarzenia": rep.get("event_title"),
+                "opis_zdarzenia": rep.get("event_description"),
             }
         )
     return rows
@@ -77,6 +81,8 @@ def transit_attrs(parcels: list[dict]) -> list[dict]:
             "nadawca": p.get("sender"),
             "paczkomat": p.get("locker"),
             "status": status_pl(p.get("status")),
+            "tytul_zdarzenia": p.get("event_title"),
+            "opis_zdarzenia": p.get("event_description"),
         }
         for p in parcels
     ]

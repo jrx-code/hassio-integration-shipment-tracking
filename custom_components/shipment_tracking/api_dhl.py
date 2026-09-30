@@ -58,11 +58,12 @@ class DhlApi:
     do not survive process restart."""
 
     def __init__(self) -> None:
-        self._ctx: ssl.SSLContext | None = None
         self.jar = http.cookiejar.CookieJar()
-        self.opener = urllib.request.build_opener(
-            urllib.request.HTTPCookieProcessor(self.jar)
-        )
+        # Built on the first request, never here: an HTTPSHandler without an
+        # explicit context creates one in its constructor (load_default_certs),
+        # and DhlApi() is instantiated on the event loop by the config flow and
+        # the coordinator. _do_raw only ever runs in an executor.
+        self._opener: urllib.request.OpenerDirector | None = None
 
     def export_cookies(self) -> list[dict]:
         """Snapshot the cookiejar as plain dicts — the config entry's only
@@ -163,10 +164,13 @@ class DhlApi:
         return self._do_raw(req)
 
     def _do_raw(self, req: urllib.request.Request) -> tuple[int, dict]:
-        if self._ctx is None:
-            self._ctx = ssl.create_default_context()
+        if self._opener is None:
+            self._opener = urllib.request.build_opener(
+                urllib.request.HTTPSHandler(context=ssl.create_default_context()),
+                urllib.request.HTTPCookieProcessor(self.jar),
+            )
         try:
-            with self.opener.open(req, timeout=25) as r:
+            with self._opener.open(req, timeout=25) as r:
                 raw = r.read().decode()
                 return r.status, (json.loads(raw) if raw else {})
         except urllib.error.HTTPError as e:

@@ -28,8 +28,25 @@ class InPostError(Exception):
     """Any other InPost API failure."""
 
 
-def _state_of(status: str) -> str:
-    return inpost_canonical(status)
+def _state_of(status: str, status_group: str | None = None) -> str:
+    return inpost_canonical(status, status_group)
+
+
+def _newest_event(p: dict) -> dict:
+    """Return the newest events[] entry, or {} when the parcel has none.
+
+    InPost lists events newest-first in live payloads (issue #3); fall back to
+    the last element if the list is somehow ordered the other way and only one
+    end carries title/description.
+    """
+    events = p.get("events") or []
+    if not events:
+        return {}
+    first = events[0] if isinstance(events[0], dict) else {}
+    if first.get("eventTitle") or first.get("eventDescription"):
+        return first
+    last = events[-1] if isinstance(events[-1], dict) else {}
+    return last
 
 
 def _phone_value(raw) -> str | None:
@@ -70,6 +87,7 @@ def _map_parcel(p: dict, state: str) -> dict:
     addr = point.get("addressDetails") or {}
     mc = p.get("multiCompartment") or {}
     ops = p.get("operations") or {}
+    event = _newest_event(p)
     return {
         "shipment": p.get("shipmentNumber"),
         "status": p.get("status", "UNKNOWN"),
@@ -95,6 +113,10 @@ def _map_parcel(p: dict, state: str) -> dict:
         # recipient in `receiver`, so this is how a FRIEND/OBSERVED parcel can be
         # attributed back to the account that shared it.
         "owner_phone": _phone_value((p.get("receiver") or {}).get("phoneNumber")),
+        # Newest events[] entry — the only place some human-readable explanations
+        # exist (e.g. expired locker storage window). Surfaced on sensor attrs.
+        "event_title": event.get("eventTitle"),
+        "event_description": event.get("eventDescription"),
     }
 
 
@@ -102,7 +124,7 @@ def categorize_parcels(parcels: list[dict]) -> dict[str, list[dict]]:
     """Split all parcels into ready / in_transit / archived, keeping full history."""
     out: dict[str, list[dict]] = {"ready": [], "in_transit": [], "archived": []}
     for p in parcels:
-        state = _state_of(p.get("status", "UNKNOWN"))
+        state = _state_of(p.get("status", "UNKNOWN"), p.get("statusGroup"))
         out[state].append(_map_parcel(p, state))
     return out
 

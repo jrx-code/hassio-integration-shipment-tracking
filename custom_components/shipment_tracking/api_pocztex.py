@@ -39,7 +39,6 @@ import urllib.parse
 import urllib.request
 
 from .const import (
-    POCZTEX_APP_URL,
     POCZTEX_CLIENT_ID,
     POCZTEX_IDM_URL,
     POCZTEX_REALM,

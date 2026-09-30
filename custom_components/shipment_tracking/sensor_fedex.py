@@ -21,8 +21,8 @@ from .const import (
     DEFAULT_ARCHIVE_LIMIT,
     DOMAIN,
 )
-from .logos import logo_url
 from .coordinator_fedex import FedexCoordinator
+from .logos import logo_url
 
 
 async def async_setup_fedex_sensors(

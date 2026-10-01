@@ -237,6 +237,55 @@ stopped showing — see [Entities](#-entities) above).
   (`inpost_<phone>_...`, `dpd_<phone>_...`, `dhl_<entry_id>_...`, ...) so the
   same phone number used on two carriers never collides.
 
+## 🚧 Roadmap
+
+Next carriers, in order: **UPS**, **DHL by number** (official *Shipment Tracking - Unified*
+API) and **GLS** ([#6](https://github.com/jrx-code/hassio-integration-shipment-tracking/issues/6)),
+then an optional aggregator for cross-border parcels (AliExpress, Temu, Shein). Why these,
+the sources, and what was ruled out (Amazon, Vinted Go, Packeta, Cainiao lockers, X-press):
+[`docs/CARRIER_ROADMAP.md`](docs/CARRIER_ROADMAP.md). Delivery windows on the sensors:
+[#7](https://github.com/jrx-code/hassio-integration-shipment-tracking/issues/7).
+
+### Plan: UPS
+
+Same shape as FedEx: the user's own developer app credentials, tracking numbers in Options,
+no account auto-discovery (UPS has no consumer "my parcels" API).
+
+What UPS's official OpenAPI specs say ([UPS-API/api-documentation](https://github.com/UPS-API/api-documentation),
+`OAuthClientCredentials.yaml`, `Tracking.yaml`):
+
+- **Token:** `POST https://onlinetools.ups.com/security/v1/oauth/token`, HTTP Basic with the
+  Client ID and Secret, `grant_type=client_credentials`. The spec describes this flow for an
+  integration owner who is also the UPS shipper; the `x-merchant-id` header (6-digit account
+  number) is optional.
+- **Track:** `GET https://onlinetools.ups.com/api/track/v1/details/{inquiryNumber}`, **one number
+  per request** (FedEx takes 30), required headers `transId` and `transactionSrc`, optional
+  `locale`. A test environment exists at `wwwcie.ups.com`.
+- **Retention:** data rolls off after 120 days.
+- **Delivery windows:** `deliveryTime` carries an estimated, confirmed or imminent window
+  (`EDW`, `CDW`, `IDW`, with `startTime`/`endTime`), and `deliveryDate` the scheduled or
+  rescheduled date (`SDD`, `RDD`). Direct input for #7.
+
+Steps:
+
+0. **Spike, go/no-go.** Create an app on developer.ups.com and check (a) whether a free UPS
+   account is enough, without a shipper account number, and (b) whether Track returns an
+   inbound `1Z` number shipped by someone else. The specs state neither. If (b) fails, stop:
+   the module would be useless to a recipient.
+1. **`api_ups.py`:** stdlib `urllib` client run in the executor; token cached until it expires;
+   one GET per number; `404` means "not in the system yet", not an error.
+2. **Status mapping:** `ups_canonical()` in `const.py`, from `currentStatus` onto the shared
+   buckets, built from UPS's Tracking appendix. Unknown codes fall back to a keyword scan and
+   stay active, the rule DHL and InPost already follow.
+3. **Coordinator and sensor** modelled on FedEx, plus `okno_doreczenia_od` / `okno_doreczenia_do`
+   and `przewidywana_data` from `deliveryTime` / `deliveryDate`.
+4. **Config flow** step `ups` (alias, Client ID, Client Secret), tracking numbers in Options,
+   translations, a UPS badge in `logos/`.
+5. **Polling cost:** one call per number per interval, so a number in a final state is no
+   longer polled, and numbers past the 120-day retention are dropped.
+6. **Tests and docs:** normalizer fixtures from the spec examples and from the spike's
+   responses (redacted); Entities, Configuration and Under the hood sections here.
+
 ## ⚠️ Disclaimer
 
 Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, DHL, Poczta Polska/Pocztex, Orlen Paczka, or Allegro. For InPost/DPD/Pocztex/DHL it talks to each carrier's consumer mobile/web API on your behalf using your own account; FedEx uses their official, documented developer API instead; Orlen Paczka uses a public JSONP status endpoint; Allegro One uses an undocumented public edge endpoint (operator accepts breakage risk — see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md)). Use it at your own discretion. All carrier names and logos belong to their respective owners.

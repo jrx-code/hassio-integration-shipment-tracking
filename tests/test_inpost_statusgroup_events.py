@@ -57,6 +57,16 @@ def test_unknown_with_to_pickup_group_is_ready():
     assert inpost_canonical("BRAND_NEW_UNKNOWN_STATUS", "to_pickup") == "ready"
 
 
+def test_unknown_with_delivered_group_is_archived():
+    """statusGroup DELIVERED seen live (issue #3) must not sit in transit."""
+    assert inpost_canonical("BRAND_NEW_UNKNOWN_STATUS", "DELIVERED") == "archived"
+    assert inpost_canonical("BRAND_NEW_UNKNOWN_STATUS", "delivered") == "archived"
+
+
+def test_known_status_wins_over_group():
+    assert inpost_canonical("READY_TO_PICKUP", "DELIVERED") == "ready"
+
+
 def test_unknown_without_group_defaults_to_in_transit():
     """DHL-style safer default — never silently archive unknowns."""
     assert inpost_canonical("BRAND_NEW_UNKNOWN_STATUS") == "in_transit"
@@ -129,3 +139,16 @@ def test_categorize_delivered_still_archived():
         "statusGroup": "DELIVERED",
     }])
     assert [p["shipment"] for p in cat["archived"]] == ["2"]
+
+
+def test_categorize_unknown_status_group_delivered_with_stale_code():
+    """A delivered parcel keeps its old openCode; the group still archives it."""
+    cat = categorize_parcels([{
+        "shipmentNumber": "3",
+        "status": "SOME_FUTURE_STATUS",
+        "statusGroup": "DELIVERED",
+        "openCode": "654321",
+    }])
+    assert [p["shipment"] for p in cat["archived"]] == ["3"]
+    assert cat["ready"] == []
+    assert cat["in_transit"] == []

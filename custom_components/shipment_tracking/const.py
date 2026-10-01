@@ -187,9 +187,10 @@ def inpost_canonical(raw: str, status_group: str | None = None) -> str:
     """Map a raw InPost status to its canonical bucket (ready/in_transit/archived).
 
     Known raw statuses stay in their tables. Unknown ones fall back to InPost's
-    own ``statusGroup`` (``TO_PICKUP`` → ready, anything else → in_transit)
-    instead of silently archiving — the DHL safer default: better to show an
-    extra parcel than to hide a collectible one (issue #3).
+    own ``statusGroup`` (``TO_PICKUP`` → ready, ``DELIVERED`` → archived,
+    anything else → in_transit) instead of silently archiving — the DHL safer
+    default: better to show an extra parcel than to hide a collectible one
+    (issue #3).
     """
     if raw in READY:
         return "ready"
@@ -200,6 +201,10 @@ def inpost_canonical(raw: str, status_group: str | None = None) -> str:
     group = (status_group or "").strip().upper()
     if group == "TO_PICKUP":
         return "ready"
+    # Seen live on delivered parcels (issue #3). A delivered parcel keeps its
+    # old openCode in the payload, so the group, not the code, decides.
+    if group == "DELIVERED":
+        return "archived"
     # Unknown raw + unknown/absent group: keep visible as in transit.
     return "in_transit"
 

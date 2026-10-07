@@ -84,11 +84,34 @@
           "alias": "Name (alias, optional)"
         }
       },
+      "orlen_account": {
+        "title": "Add Orlen Paczka (account)",
+        "description": "Logs into the ORLEN Paczka app by phone number — an SMS code confirms it, then every parcel addressed to that number is tracked automatically. The integration does not ship the app credentials: enter the ORLEN Paczka app client secret (Entra ID) yourself, see the README.",
+        "data": {
+          "alias": "Name (alias, optional)",
+          "phone": "Phone number (9 digits)",
+          "client_secret": "ORLEN Paczka app client secret"
+        }
+      },
+      "orlen_account_sms": {
+        "title": "Enter the SMS code",
+        "description": "Code sent to {phone}.",
+        "data": {
+          "code": "Code from the SMS"
+        }
+      },
       "allegro_one": {
         "title": "Add Allegro One tracking",
         "description": "Public track-by-number via Allegro edge API — no OAuth. Use Allegro-internal waybills (A… / AD…), not UPS/DPD/Orlen subcontractor numbers. Add numbers afterwards in Options.",
         "data": {
           "alias": "Name (alias, optional)"
+        }
+      },
+      "orlen_account_reauth": {
+        "title": "Orlen Paczka: log in again",
+        "description": "Confirm or enter the ORLEN Paczka app client secret; an SMS code is then sent to {phone}.",
+        "data": {
+          "client_secret": "ORLEN Paczka app client secret"
         }
       }
     },
@@ -97,7 +120,8 @@
       "cannot_connect": "Could not reach the carrier.",
       "sms_rejected": "The carrier did not accept this number.",
       "invalid_code": "Wrong code or verification failed.",
-      "invalid_auth": "FedEx rejected these credentials."
+      "invalid_auth": "FedEx rejected these credentials.",
+      "invalid_client_secret": "The sign-in server rejected the ORLEN Paczka app client secret."
     },
     "abort": {
       "already_configured": "This account is already configured.",

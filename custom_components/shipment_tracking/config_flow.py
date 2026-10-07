@@ -25,7 +25,16 @@ from .api import InPostApi, InPostError
 from .api_dhl import DhlApi, DhlAuthError, DhlError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
+from .api_orlen_account import (
+    OrlenAccountApi,
+    OrlenAccountClientSecretError,
+    OrlenAccountError,
+)
 from .api_pocztex import PocztexApi, PocztexAuthError, PocztexError
+from .carriers_orlen_account import (
+    CARRIER_LABEL_ORLEN_ACCOUNT,
+    CARRIER_ORLEN_ACCOUNT,
+)
 from .carriers_orlen_allegro import (
     CARRIER_ALLEGRO_ONE,
     CARRIER_LABEL_ALLEGRO_ONE,
@@ -87,6 +96,9 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
         self._dpd: DpdApi | None = None
         self._dhl: DhlApi | None = None
         self._email: str = ""
+        self._device_id: str = ""
+        self._orlen_account: OrlenAccountApi | None = None
+        self._client_secret: str = ""
 
     # ------------------------- carrier select -------------------------
     async def async_step_user(
@@ -104,6 +116,8 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 return await self.async_step_dhl()
             if self._carrier == CARRIER_ORLEN:
                 return await self.async_step_orlen()
+            if self._carrier == CARRIER_ORLEN_ACCOUNT:
+                return await self.async_step_orlen_account()
             if self._carrier == CARRIER_ALLEGRO_ONE:
                 return await self.async_step_allegro_one()
             return await self.async_step_inpost()
@@ -121,6 +135,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                             # track-by-number, see carriers_orlen_allegro.py.
                             + [
                                 {"value": CARRIER_ORLEN, "label": CARRIER_LABEL_ORLEN},
+                                {"value": CARRIER_ORLEN_ACCOUNT, "label": CARRIER_LABEL_ORLEN_ACCOUNT},
                                 {"value": CARRIER_ALLEGRO_ONE, "label": CARRIER_LABEL_ALLEGRO_ONE},
                             ],
                             mode=SelectSelectorMode.DROPDOWN,
@@ -206,6 +221,123 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema({vol.Required("code"): str}),
             errors=errors,
             description_placeholders={"phone": f"+{self._prefix.lstrip('+')} {self._phone}"},
+        )
+
+    # ----------------------- Orlen (account) --------------------------
+    async def async_step_orlen_account(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._alias = user_input[CONF_ALIAS].strip()
+            self._phone = user_input[CONF_PHONE].strip()
+            self._client_secret = user_input[CONF_CLIENT_SECRET].strip()
+            if not (self._phone.isdigit() and len(self._phone) == 9):
+                errors["base"] = "invalid_phone"
+            else:
+                await self.async_set_unique_id(f"orlen_account_{self._phone}")
+                self._abort_if_unique_id_configured()
+                self._device_id = str(uuid.uuid4())
+                self._orlen_account = OrlenAccountApi(self._client_secret)
+                try:
+                    ok = await self.hass.async_add_executor_job(
+                        self._orlen_account.send_sms, self._phone, self._device_id
+                    )
+                except OrlenAccountClientSecretError as err:
+                    _LOGGER.error("Orlen account client secret rejected: %s", err)
+                    errors["base"] = "invalid_client_secret"
+                except OrlenAccountError as err:
+                    _LOGGER.error("Orlen account send_sms failed: %s", err)
+                    errors["base"] = "cannot_connect"
+                else:
+                    if ok:
+                        return await self.async_step_orlen_account_sms()
+                    errors["base"] = "sms_rejected"
+
+        return self.async_show_form(
+            step_id="orlen_account",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_ALIAS, default=self._alias or "Orlen Paczka"): str,
+                    vol.Required(CONF_PHONE): str,
+                    vol.Required(CONF_CLIENT_SECRET): str,
+                }
+            ),
+            errors=errors,
+        )
+
+    async def async_step_orlen_account_sms(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            code = str(user_input["code"]).strip()
+            try:
+                ok = await self.hass.async_add_executor_job(
+                    self._orlen_account.verify_sms, self._phone, self._device_id, code
+                )
+            except OrlenAccountError as err:
+                _LOGGER.warning("Orlen account verify_sms failed: %s", err)
+                errors["base"] = "invalid_code"
+            else:
+                if not ok:
+                    errors["base"] = "invalid_code"
+                else:
+                    data = {
+                        CONF_CARRIER: CARRIER_ORLEN_ACCOUNT,
+                        CONF_ALIAS: self._alias,
+                        CONF_PHONE: self._phone,
+                        CONF_DEVICE_ID: self._device_id,
+                        CONF_CLIENT_SECRET: self._client_secret,
+                    }
+                    if self._reauth_entry is not None:
+                        return self.async_update_reload_and_abort(
+                            self._reauth_entry, data=data
+                        )
+                    return self.async_create_entry(
+                        title=f"Orlen Paczka — {self._alias}", data=data
+                    )
+
+        return self.async_show_form(
+            step_id="orlen_account_sms",
+            data_schema=vol.Schema({vol.Required("code"): str}),
+            errors=errors,
+            description_placeholders={"phone": self._phone},
+        )
+
+    async def async_step_orlen_account_reauth(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Reauth for the account carrier: confirm or enter the app client
+        secret, then log in again by SMS."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            self._client_secret = user_input[CONF_CLIENT_SECRET].strip()
+            if not self._device_id:
+                self._device_id = str(uuid.uuid4())
+            self._orlen_account = OrlenAccountApi(self._client_secret)
+            try:
+                ok = await self.hass.async_add_executor_job(
+                    self._orlen_account.send_sms, self._phone, self._device_id
+                )
+            except OrlenAccountClientSecretError as err:
+                _LOGGER.error("Orlen account client secret rejected: %s", err)
+                errors["base"] = "invalid_client_secret"
+            except OrlenAccountError as err:
+                _LOGGER.error("Orlen account reauth send_sms failed: %s", err)
+                errors["base"] = "cannot_connect"
+            else:
+                if ok:
+                    return await self.async_step_orlen_account_sms()
+                errors["base"] = "sms_rejected"
+
+        return self.async_show_form(
+            step_id="orlen_account_reauth",
+            data_schema=vol.Schema(
+                {vol.Required(CONF_CLIENT_SECRET, default=self._client_secret): str}
+            ),
+            errors=errors,
+            description_placeholders={"phone": self._phone},
         )
 
     # ------------------------------ DPD -------------------------------
@@ -476,6 +608,10 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
         self._alias = entry_data.get(CONF_ALIAS, "")
         self._prefix = entry_data.get(CONF_PREFIX, "+48")
         self._phone = entry_data.get(CONF_PHONE, "")
+        self._device_id = entry_data.get(CONF_DEVICE_ID, "")
+        self._client_secret = entry_data.get(CONF_CLIENT_SECRET, "")
+        if self._carrier == CARRIER_ORLEN_ACCOUNT:
+            return await self.async_step_orlen_account_reauth()
         if self._carrier == CARRIER_POCZTEX:
             # No SMS-resend equivalent — just re-show the login form with
             # the email prefilled, same step as initial setup.
@@ -509,7 +645,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                     )
                     if ok:
                         return await self.async_step_sms()
-            except (InPostError, DpdError, DhlError) as err:
+            except (InPostError, DpdError, DhlError, OrlenAccountError) as err:
                 _LOGGER.error("reauth send_sms failed: %s", err)
                 errors["base"] = "cannot_connect"
             else:

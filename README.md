@@ -110,6 +110,17 @@ percentage the API returns; anything under 100 counts as active.
 
 Public JSONP track-by-number (no Partner SOAP secrets). Same Options list pattern as FedEx. Details and risk notes: [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md). Sensors use **`mdi:truck-delivery`** (no badge PNG yet).
 
+### Orlen Paczka (konto) (per phone number)
+
+> **Experimental.** Signs in to the ORLEN Paczka app backend with your phone number and an SMS code, then tracks every parcel addressed to that number; no tracking-number list. The per-parcel field names are best-effort until a real parcel has been seen.
+
+| Entity | State | Key attributes |
+|---|---|---|
+| `sensor` · **W drodze** | number of active parcels | `w_drodze[]`, `dostarczone[]` (latest N) |
+| `sensor` · **Do odbioru** | number of parcels ready for pickup | `do_odbioru[]` |
+
+**The integration does not ship the app credentials.** Setup asks for the client secret of the ORLEN Paczka app's Entra ID (Azure AD) registration, next to the phone number; it is stored on the config entry only. A missing or rejected secret starts reauthentication, which asks for it again before the SMS step. You supply the secret yourself; this repository does not publish it.
+
 ### Allegro One (per configured tracking-number list)
 
 > **Experimental.** Status labels come back as free text and are mapped by keyword; they have not been checked against real parcels yet. An unrecognised label keeps the parcel active rather than archiving it.

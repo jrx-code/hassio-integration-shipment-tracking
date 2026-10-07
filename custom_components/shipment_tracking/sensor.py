@@ -19,6 +19,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from . import ShipmentConfigEntry, carrier_of
+from .carriers_orlen_account import CARRIER_ORLEN_ACCOUNT
 from .carriers_orlen_allegro import CARRIER_ALLEGRO_ONE, CARRIER_ORLEN
 from .const import (
     CARRIER_DHL,
@@ -41,6 +42,7 @@ from .sensor_dhl import async_setup_dhl_sensors
 from .sensor_dpd import async_setup_dpd_sensors
 from .sensor_fedex import async_setup_fedex_sensors
 from .sensor_orlen import async_setup_orlen_sensors
+from .sensor_orlen_account import async_setup_orlen_account_sensors
 from .sensor_pocztex import async_setup_pocztex_sensors
 from .share import own_only, shared_in, shared_out
 
@@ -70,6 +72,9 @@ async def async_setup_entry(
         return
     if carrier_of(entry) == CARRIER_ORLEN:
         await async_setup_orlen_sensors(hass, entry, async_add_entities)
+        return
+    if carrier_of(entry) == CARRIER_ORLEN_ACCOUNT:
+        await async_setup_orlen_account_sensors(hass, entry, async_add_entities)
         return
     if carrier_of(entry) == CARRIER_ALLEGRO_ONE:
         await async_setup_allegro_one_sensors(hass, entry, async_add_entities)

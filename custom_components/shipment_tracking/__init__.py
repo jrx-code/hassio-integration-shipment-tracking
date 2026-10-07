@@ -8,6 +8,7 @@ from homeassistant.const import Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers import entity_registry as er
 
+from .carriers_orlen_account import CARRIER_ORLEN_ACCOUNT
 from .carriers_orlen_allegro import CARRIER_ALLEGRO_ONE, CARRIER_ORLEN
 from .const import (
     CARRIER_DHL,
@@ -25,6 +26,7 @@ from .coordinator_dhl import DhlCoordinator
 from .coordinator_dpd import DpdCoordinator
 from .coordinator_fedex import FedexCoordinator
 from .coordinator_orlen import OrlenCoordinator
+from .coordinator_orlen_account import OrlenAccountCoordinator
 from .coordinator_pocztex import PocztexCoordinator
 from .logos import async_register as async_register_logos
 from .share import auto_share_unique_id, peer_entries, share_unique_id
@@ -42,6 +44,7 @@ PLATFORMS_BY_CARRIER: dict[str, list[Platform]] = {
     CARRIER_POCZTEX: [Platform.SENSOR],
     CARRIER_DHL: [Platform.SENSOR],
     CARRIER_ORLEN: [Platform.SENSOR],
+    CARRIER_ORLEN_ACCOUNT: [Platform.SENSOR],
     CARRIER_ALLEGRO_ONE: [Platform.SENSOR],
 }
 
@@ -64,6 +67,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
         | PocztexCoordinator
         | DhlCoordinator
         | OrlenCoordinator
+        | OrlenAccountCoordinator
         | AllegroOneCoordinator
     )
     if carrier == CARRIER_DPD:
@@ -76,6 +80,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
         coordinator = DhlCoordinator(hass, entry)
     elif carrier == CARRIER_ORLEN:
         coordinator = OrlenCoordinator(hass, entry)
+    elif carrier == CARRIER_ORLEN_ACCOUNT:
+        coordinator = OrlenAccountCoordinator(hass, entry)
     elif carrier == CARRIER_ALLEGRO_ONE:
         coordinator = AllegroOneCoordinator(hass, entry)
     else:

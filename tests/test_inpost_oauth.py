@@ -197,3 +197,36 @@ def test_token_phone_reads_known_claim_shapes(claims):
 @pytest.mark.parametrize("token", [None, "", "not-a-jwt", _jwt({"sub": "x"})])
 def test_token_phone_none_when_missing(token):
     assert api.token_phone(token) is None
+
+
+# ---------------- account phone from parcels ----------------
+def _parcel(phone, ownership="OWN"):
+    p = {"receiver": {"phoneNumber": {"prefix": "+48", "value": phone}}}
+    if ownership is not None:
+        p["ownershipStatus"] = ownership
+    return p
+
+
+def test_account_phone_from_own_parcels_ignores_friends():
+    parcels = [
+        _parcel("555000001"),
+        _parcel("555000001", None),
+        _parcel("555000002", "FRIEND"),
+        _parcel("555000002", "FRIEND"),
+        _parcel("555000002", "FRIEND"),
+        _parcel("555000003", "OBSERVED"),
+    ]
+    assert api.account_phone_from_parcels(parcels) == "555000001"
+
+
+def test_account_phone_from_parcels_accepts_bare_string_numbers():
+    assert api.account_phone_from_parcels(
+        [{"ownershipStatus": "OWN", "receiver": {"phoneNumber": "+48555000001"}}]
+    ) == "555000001"
+
+
+@pytest.mark.parametrize(
+    "parcels", [[], [_parcel("555000002", "FRIEND")], [{"receiver": {}}], [{}]]
+)
+def test_account_phone_from_parcels_none_when_unknown(parcels):
+    assert api.account_phone_from_parcels(parcels) is None

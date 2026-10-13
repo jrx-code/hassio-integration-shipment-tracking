@@ -25,7 +25,7 @@
 - 🗄️ **Archiwum / dostarczone** — recently delivered / closed parcels (capped, configurable)
 - 👥 **Multi-account** — add several accounts per carrier, each as its own device
 - 🤝 **App-to-app sharing** (InPost only) — hand a ready parcel to another configured InPost account (a paired "friend"), on a button press or automatically
-- 🔑 **Official mobile/web auth, no scraping** — InPost/DPD/DHL use SMS login (DHL's stores a session-cookie snapshot instead of a refresh token, verified to survive a real sliding 30-min window). Pocztex is the exception: its Keycloak session has a hard 30-minute cap that no amount of refreshing can extend, so its config entry stores the account password and re-logs-in every poll instead
+- 🔑 **Official mobile/web auth, no scraping** — InPost signs in on its own page in your browser (OAuth2 + PKCE, you paste back the final address); DPD/DHL use SMS login (DHL's stores a session-cookie snapshot instead of a refresh token, verified to survive a real sliding 30-min window). Pocztex is the exception: its Keycloak session has a hard 30-minute cap that no amount of refreshing can extend, so its config entry stores the account password and re-logs-in every poll instead
 - 🧩 **Almost dependency-free** — stdlib `urllib` client for both carriers; the only requirement is `segno`, for rendering InPost pickup QR codes
 - 🏷️ **Every sensor wears its carrier's own logo** — Home Assistant allows one brand image per integration, so all five carriers would otherwise share one generic parcel box; each carrier's sensors carry the carrier badge as `entity_picture` instead
 - 🎯 **One framework, one entity shape per carrier** — adding a new carrier module doesn't touch the others
@@ -191,9 +191,9 @@ Copy `custom_components/shipment_tracking/` into your Home Assistant `config/cus
 ```
 InPost:
 1.  Alias        →  e.g. "Home"
-2.  Prefix       →  dropdown, default +48
-3.  Phone        →  9 digits
-4.  SMS code     →  6 digits sent to that number
+2.  Sign in      →  open the link shown, sign in on InPost's page
+                    (phone or e-mail), copy the address the browser ends on
+                    (account.inpost-group.com/callback?code=...) and paste it
 
 DPD:
 1.  Alias        →  optional
@@ -223,7 +223,17 @@ Orlen Paczka / Allegro One (same shape as FedEx track-by-number):
 ```
 
 When a session expires, Home Assistant starts a re-auth for that carrier —
-a fresh SMS for InPost/DPD/DHL, the password form again for Pocztex. Per-entry
+the browser sign-in again for InPost, a fresh SMS for DPD/DHL, the password
+form again for Pocztex.
+
+**InPost sign-in, details.** InPost retired its SMS login on 2026-10-12; the app
+now signs in with OAuth2 + PKCE behind a Cloudflare captcha and only redirects to
+its own callback page, so Home Assistant cannot finish the login by itself. Paste
+the address right away, the code expires within minutes. For several InPost
+accounts use a private/incognito window per account (InPost's page remembers the
+signed-in account). Accounts added with the old SMS login ask for this sign-in
+once after the update; entities and their ids stay as they were. The phone
+number is read from InPost's token, and a re-auth only accepts the same account. Per-entry
 **options**: polling interval (default 15 min), archived/delivered-parcels
 cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an
 ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app
@@ -231,7 +241,7 @@ stopped showing — see [Entities](#-entities) above).
 
 ## 🔧 Under the hood
 
-- **Legacy SMS auth** on InPost's mobile API — no captcha, unlike the OAuth backend (Cloudflare Turnstile).
+- **InPost OAuth2 + PKCE** (`client_id=inpost-mobile`): browser sign-in on `account.inpost-group.com` (Cloudflare Turnstile), code and refresh at `POST /global/oauth2/token` on the mobile API host. The access token is cached until shortly before it expires; a rotated refresh token is written back to the entry. The legacy SMS endpoints (`/v1/account`, `/v1/authenticate`) answer 404 since 2026-10-12.
 - **DPD SMS auth** via Keycloak (`dpdsso.dpd.com.pl`, realm `DPD`) against the DPD Mobile PL backend — not the GEOPOST myDPD/email+password platform.
 - **DHL SMS auth** behind an Altcha proof-of-work captcha, solved client-side (brute-force `SHA-256(salt+n)==challenge`, a fraction of a second — not an image to click through). Session lives in httpOnly cookies set at login, refreshed with a genuine sliding 30-minute window on every poll.
 - **Pocztex email+password auth** via Keycloak authorization_code+PKCE (`idm.pocztex.pl`, realm `ppsa`) — direct password grant is disabled for this client, so it drives the same browser-less PKCE dance a login page would. Its session has a hard, non-sliding 30-minute cap: refreshing a token doesn't extend it, so this carrier re-logs-in every poll instead (the config entry stores the account password for that, not just a refresh token).

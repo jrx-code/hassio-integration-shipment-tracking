@@ -5,20 +5,23 @@ import logging
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import (
     InPostApi,
     InPostError,
+    InPostSession,
     NotModified,
     ReauthRequired,
     categorize_parcels,
     filter_ignored,
 )
 from .const import (
+    AUTH_OAUTH,
     CONF_ARCHIVE_LIMIT,
+    CONF_AUTH,
     CONF_IGNORED_SHIPMENTS,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
@@ -38,9 +41,11 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
     """Poll one InPost account and expose categorized parcels.
 
     The InPost client is blocking (urllib) so every call goes through the
-    executor. The refresh token does not rotate; when it expires InPost signals
-    reauthentication, surfaced here as ConfigEntryAuthFailed to trigger the HA
-    reauth flow. A 304 (NotModified) keeps the previously fetched data.
+    executor. InPostSession keeps the OAuth access token between polls and
+    refreshes it shortly before it expires; a rotated refresh token is written
+    back to entry.data. A refresh InPost rejects, or an entry from the retired
+    SMS login, surfaces as ConfigEntryAuthFailed to trigger the HA reauth flow.
+    A 304 (NotModified) keeps the previously fetched data.
     """
 
     def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
@@ -56,6 +61,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         )
         self.entry = entry
         self._api = InPostApi(DEFAULT_BASE, DEFAULT_UA)
+        self.session = InPostSession(self._api, entry.data.get(CONF_REFRESH_TOKEN, ""))
         # Phones of peer accounts this one auto-shares ready parcels with. Owned
         # by the auto-share switches; empty means manual (button) sharing only.
         self.auto_share: set[str] = set()
@@ -68,12 +74,48 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
     def archive_limit(self) -> int:
         return int(self.entry.options.get(CONF_ARCHIVE_LIMIT, DEFAULT_ARCHIVE_LIMIT))
 
+    def _authorized(self, call, *args):
+        """Run an API call with a valid token; one forced refresh on HTTP 401.
+
+        Blocking — executor only. An entry from the retired SMS login has no
+        usable token at all, so it asks for reauth before touching the network.
+        """
+        if self.entry.data.get(CONF_AUTH) != AUTH_OAUTH:
+            raise ReauthRequired("entry uses the retired SMS login")
+        try:
+            return call(self.session.authorization(), *args)
+        except InPostError as err:
+            if "HTTP 401" not in str(err):
+                raise
+            return call(self.session.authorization(force=True), *args)
+
+    @callback
+    def async_persist_tokens(self) -> None:
+        """Write a rotated refresh token back to entry.data.
+
+        Skipped while the entry is still setting up (writing during the first
+        refresh left DPD's coordinator empty, see coordinator_dpd.py);
+        async_setup_entry calls this again once the update listener is in place.
+        """
+        if not self.session.rotated:
+            return
+        if self.session.refresh_token == self.entry.data.get(CONF_REFRESH_TOKEN):
+            self.session.rotated = False
+            return
+        if getattr(self.entry, "runtime_data", None) is not self:
+            return  # first refresh of a setup; async_setup_entry retries later
+        _LOGGER.debug("InPost refresh token rotated, persisting")
+        self.session.rotated = False
+        self.hass.config_entries.async_update_entry(
+            self.entry,
+            data={**self.entry.data, CONF_REFRESH_TOKEN: self.session.refresh_token},
+        )
+
     def _fetch(self) -> dict:
         """Blocking fetch — runs in the executor."""
-        token = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
-        parcels = self._api.get_parcels(token)
+        parcels = self._authorized(self._api.get_parcels)
         try:
-            friends = self._api.get_friends(token)
+            friends = self._authorized(self._api.get_friends)
         except InPostError as err:
             # Sharing is a side feature; a friends-list hiccup must not blank out
             # the parcel sensors. Keep whatever list we had.
@@ -136,8 +178,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
 
     def _share(self, shipments: list[str], uuid: str) -> None:
         """Blocking share — runs in the executor."""
-        token = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
-        self._api.share_parcels(token, shipments, [uuid])
+        self._authorized(self._api.share_parcels, shipments, [uuid])
 
     async def async_share_with(self, phone: str, data: dict | None = None) -> list[str]:
         """Share every not-yet-shared ready parcel with the peer at `phone`.
@@ -191,7 +232,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         try:
             data = await self.hass.async_add_executor_job(self._fetch)
         except ReauthRequired as err:
-            raise ConfigEntryAuthFailed("InPost refresh token expired") from err
+            raise ConfigEntryAuthFailed(f"InPost sign-in needed: {err}") from err
         except NotModified:
             # Nothing changed / rate-limited — keep the last good snapshot.
             if self.data is not None:
@@ -203,6 +244,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         except InPostError as err:
             raise UpdateFailed(str(err)) from err
 
+        self.async_persist_tokens()
         if self.auto_share:
             await self.async_apply_auto_share(data)
         return data

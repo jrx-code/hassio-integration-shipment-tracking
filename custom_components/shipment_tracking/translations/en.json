@@ -10,18 +10,23 @@
       },
       "inpost": {
         "title": "Add an InPost account",
-        "description": "An SMS code will be sent to this number.",
+        "description": "Give the account a name. On the next step you sign in on InPost's own page in your browser.",
         "data": {
-          "alias": "Name (alias)",
-          "prefix": "Phone prefix",
-          "phone": "Phone number (9 digits)"
+          "alias": "Name (alias)"
         }
       },
-      "sms": {
-        "title": "Enter the SMS code",
-        "description": "Code sent to {phone}.",
+      "inpost_login": {
+        "title": "Sign in to InPost",
+        "description": "1. Open **[InPost sign-in]({url})** (a private/incognito window is best when you add more than one account) and sign in with your phone number or e-mail.\n2. After signing in the browser lands on a page whose address starts with `account.inpost-group.com/callback?code=`. Copy the whole address from the address bar.\n3. Paste it below right away, the code expires within minutes.",
         "data": {
-          "code": "6-digit code"
+          "callback_url": "Address of the page after signing in"
+        }
+      },
+      "inpost_phone": {
+        "title": "InPost account phone number",
+        "description": "InPost did not include the phone number in the session. Enter the number of the account you just signed in to (9 digits).",
+        "data": {
+          "phone": "Phone number (9 digits)"
         }
       },
       "dpd": {
@@ -121,11 +126,16 @@
       "sms_rejected": "The carrier did not accept this number.",
       "invalid_code": "Wrong code or verification failed.",
       "invalid_auth": "FedEx rejected these credentials.",
-      "invalid_client_secret": "The sign-in server rejected the ORLEN Paczka app client secret."
+      "invalid_client_secret": "The sign-in server rejected the ORLEN Paczka app client secret.",
+      "no_code": "This is not the address InPost ends the sign-in on (no `code=` in it).",
+      "paste_url_not_code": "InPost no longer signs in with an SMS code. Paste the whole page address after signing in.",
+      "stale_login": "This address comes from a different sign-in attempt. Use the link shown on this step.",
+      "code_rejected": "InPost rejected the code (already used or expired). Sign in again with the link shown on this step."
     },
     "abort": {
       "already_configured": "This account is already configured.",
-      "reauth_successful": "Re-authentication successful."
+      "reauth_successful": "Re-authentication successful.",
+      "wrong_account": "You signed in to a different InPost account than the one being re-authenticated."
     }
   },
   "options": {

@@ -10,18 +10,23 @@
       },
       "inpost": {
         "title": "Dodaj konto InPost",
-        "description": "Na ten numer zostanie wysłany kod SMS.",
+        "description": "Nadaj kontu nazwę. W następnym kroku zalogujesz się na stronie InPostu w przeglądarce.",
         "data": {
-          "alias": "Nazwa (alias)",
-          "prefix": "Prefiks telefonu",
-          "phone": "Numer telefonu (9 cyfr)"
+          "alias": "Nazwa (alias)"
         }
       },
-      "sms": {
-        "title": "Wpisz kod SMS",
-        "description": "Kod wysłany na {phone}.",
+      "inpost_login": {
+        "title": "Zaloguj się w InPost",
+        "description": "1. Otwórz **[logowanie InPost]({url})** (przy kilku kontach najlepiej w oknie prywatnym) i zaloguj się numerem telefonu albo adresem e-mail.\n2. Po zalogowaniu przeglądarka pokaże stronę z adresem zaczynającym się od `account.inpost-group.com/callback?code=`. Skopiuj cały adres z paska adresu.\n3. Wklej go poniżej od razu, kod wygasa po kilku minutach.",
         "data": {
-          "code": "6-cyfrowy kod"
+          "callback_url": "Adres strony po zalogowaniu"
+        }
+      },
+      "inpost_phone": {
+        "title": "Numer telefonu konta InPost",
+        "description": "InPost nie przekazał numeru telefonu w sesji. Wpisz numer konta, na które właśnie się zalogowałeś (9 cyfr).",
+        "data": {
+          "phone": "Numer telefonu (9 cyfr)"
         }
       },
       "dpd": {
@@ -121,11 +126,16 @@
       "sms_rejected": "Przewoźnik nie przyjął tego numeru.",
       "invalid_code": "Błędny kod lub weryfikacja się nie powiodła.",
       "invalid_auth": "FedEx odrzucił te poświadczenia.",
-      "invalid_client_secret": "Serwer logowania odrzucił client secret aplikacji ORLEN Paczka."
+      "invalid_client_secret": "Serwer logowania odrzucił client secret aplikacji ORLEN Paczka.",
+      "no_code": "To nie jest adres, na którym InPost kończy logowanie (brak `code=`).",
+      "paste_url_not_code": "InPost nie loguje już kodem SMS. Wklej cały adres strony po zalogowaniu.",
+      "stale_login": "Ten adres pochodzi z innej próby logowania. Użyj linku z tego kroku.",
+      "code_rejected": "InPost odrzucił kod (już użyty albo wygasł). Zaloguj się jeszcze raz linkiem z tego kroku."
     },
     "abort": {
       "already_configured": "To konto jest już skonfigurowane.",
-      "reauth_successful": "Ponowne logowanie zakończone sukcesem."
+      "reauth_successful": "Ponowne logowanie zakończone sukcesem.",
+      "wrong_account": "Zalogowano się na inne konto InPost niż to, które wymaga ponownego logowania."
     }
   },
   "options": {

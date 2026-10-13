@@ -93,6 +93,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
     coordinator.setup_options = dict(entry.options)
     entry.runtime_data = coordinator
     entry.async_on_unload(entry.add_update_listener(_async_reload_on_update))
+    if isinstance(coordinator, InPostCoordinator):
+        # The first refresh may have rotated the refresh token; it could not be
+        # written while setup was running (see async_persist_tokens).
+        coordinator.async_persist_tokens()
 
     await hass.config_entries.async_forward_entry_setups(
         entry, PLATFORMS_BY_CARRIER[carrier]

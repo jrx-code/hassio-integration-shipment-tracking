@@ -84,6 +84,10 @@ CONF_ALIAS = "alias"
 CONF_PREFIX = "prefix"
 CONF_PHONE = "phone"
 CONF_REFRESH_TOKEN = "refresh_token"
+# How an InPost entry signs in. Entries without it come from the legacy SMS
+# login InPost retired on 2026-10-12; they go straight to reauth.
+CONF_AUTH = "auth"
+AUTH_OAUTH = "oauth2"
 
 # ---- DHL config-entry data keys ----
 CONF_DEVICE_ID = "device_id"

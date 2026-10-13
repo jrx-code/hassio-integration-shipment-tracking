@@ -21,7 +21,15 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
-from .api import InPostApi, InPostError, PkceLogin, ReauthRequired, token_phone
+from .api import (
+    InPostApi,
+    InPostError,
+    NotModified,
+    PkceLogin,
+    ReauthRequired,
+    account_phone_from_parcels,
+    token_phone,
+)
 from .api_dhl import DhlApi, DhlAuthError, DhlError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
@@ -82,6 +90,15 @@ PREFIX_OPTIONS = ["+48", "+49", "+44", "+420", "+421", "+380", "+31", "+33"]
 
 def _inpost_api() -> InPostApi:
     return InPostApi(DEFAULT_BASE, DEFAULT_UA)
+
+
+def _phone_from_parcels(access: str) -> str | None:
+    """Blocking: the account's phone from its own parcels, None if unknown."""
+    try:
+        return account_phone_from_parcels(_inpost_api().get_parcels(f"Bearer {access}"))
+    except (InPostError, NotModified) as err:
+        _LOGGER.debug("InPost parcels for the account phone: %s", err)
+        return None
 
 
 class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
@@ -205,7 +222,14 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
 
     async def _async_finish_inpost(self, access: str, refresh: str) -> ConfigFlowResult:
         phone = token_phone(access)
+        if not phone:
+            # Sign-in with e-mail may give a token without a phone claim; the
+            # receiver of the account's own parcels names the account then.
+            phone = await self.hass.async_add_executor_job(_phone_from_parcels, access)
         if not phone and self._reauth_entry is not None:
+            # Nothing to compare against (no claim, no own parcels): keep the
+            # entry's number, the account cannot be told apart here.
+            _LOGGER.warning("InPost reauth: account not verifiable (no phone in token or parcels)")
             phone = str(self._reauth_entry.data.get(CONF_PHONE, ""))
         if not phone:
             # No phone claim in the token: ask for it, it keys the entry and

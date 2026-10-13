@@ -233,7 +233,10 @@ the address right away, the code expires within minutes. For several InPost
 accounts use a private/incognito window per account (InPost's page remembers the
 signed-in account). Accounts added with the old SMS login ask for this sign-in
 once after the update; entities and their ids stay as they were. The phone
-number is read from InPost's token, and a re-auth only accepts the same account. Per-entry
+number is read from InPost's token or, when the token has none (e-mail sign-in
+may give one), from the receiver of the account's own parcels; a re-auth only
+accepts the same account. Signing in with e-mail (code or password) ends on the
+same callback page as the phone + SMS sign-in, so the paste step is identical. Per-entry
 **options**: polling interval (default 15 min), archived/delivered-parcels
 cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an
 ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app

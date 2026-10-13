@@ -79,6 +79,27 @@ def token_phone(token: str | None) -> str | None:
     return None
 
 
+def account_phone_from_parcels(parcels: list[dict]) -> str | None:
+    """Phone number of the account, from the receiver of its own parcels.
+
+    A fallback for tokens without a phone claim (sign-in with e-mail may give
+    one). Own parcels (ownershipStatus OWN, or none on old records) are
+    addressed to the account itself; parcels shared with us carry the friend's
+    number, so they are left out. The most common number wins.
+    """
+    counts: dict[str, int] = {}
+    for p in parcels:
+        if p.get("ownershipStatus") not in (None, "OWN"):
+            continue
+        digits = "".join(
+            ch for ch in str(_phone_value((p.get("receiver") or {}).get("phoneNumber")) or "")
+            if ch.isdigit()
+        )
+        if len(digits) >= 9:
+            counts[digits[-9:]] = counts.get(digits[-9:], 0) + 1
+    return max(counts, key=counts.get) if counts else None
+
+
 class PkceLogin:
     """One browser sign-in attempt: the authorize URL and its PKCE secret."""
 

@@ -1,31 +1,135 @@
-"""InPost mobile-API client (legacy SMS auth track).
+"""InPost mobile-API client.
 
-Ported verbatim in behaviour from the reference poller (inpost_poller.py),
-which was reverse-engineered from IFOSSA/inpost-python and verified live. stdlib
-only (urllib) — blocking, so callers must run it in an executor. Key gotchas kept
-intact: ETag pagination on /v4/parcels/tracked, legacy SMS backend (no captcha),
-304 => NotModified.
+Stdlib only (urllib) — blocking, so callers must run it in an executor. Key
+gotchas kept intact: ETag pagination on /v4/parcels/tracked, 304 => NotModified.
+
+Sign-in (since 2026-10-12): InPost retired the legacy SMS login
+(`/v1/account`, `/v1/account/verification`, `/v1/authenticate` all answer 404).
+InPost Mobile now signs in with OAuth2 + PKCE on account.inpost-group.com. That
+page sits behind a Cloudflare captcha and accepts only InPost's own redirect URI,
+so Home Assistant cannot sign in by itself: the user opens the authorize URL in a
+browser and pastes back the callback URL carrying `?code=`. The code and every
+later refresh go to `POST /global/oauth2/token` on the API host (form encoded).
 """
 from __future__ import annotations
 
+import base64
+import hashlib
 import json
+import secrets
 import ssl
+import threading
+import time
 import urllib.error
+import urllib.parse
 import urllib.request
+from dataclasses import dataclass
 
 from .const import inpost_canonical
 
+OAUTH_AUTHORIZE_URL = "https://account.inpost-group.com/oauth2/authorize"
+OAUTH_REDIRECT_URI = "https://account.inpost-group.com/callback"
+OAUTH_CLIENT_ID = "inpost-mobile"
+OAUTH_TOKEN_PATH = "/global/oauth2/token"
+APP_ID = "pl.inpost.inmobile"
+# Refresh this many seconds before the access token runs out.
+EXPIRY_MARGIN = 60
 
 class NotModified(Exception):
     """InPost returned 304 (rate-limited / nothing changed) — keep prior state."""
 
 
 class ReauthRequired(Exception):
-    """Refresh token no longer valid — user must re-authenticate via SMS."""
+    """The stored session cannot be refreshed — the user must sign in again."""
 
 
 class InPostError(Exception):
     """Any other InPost API failure."""
+
+
+def _b64url(data: bytes) -> str:
+    return base64.urlsafe_b64encode(data).rstrip(b"=").decode()
+
+
+def token_claims(token: str | None) -> dict:
+    """Unverified payload of a JWT (empty dict when the value is not one)."""
+    raw = str(token or "")
+    if raw.lower().startswith("bearer "):
+        raw = raw[7:]
+    parts = raw.split(".")
+    if len(parts) != 3:
+        return {}
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(parts[1] + "=" * (-len(parts[1]) % 4)))
+    except (ValueError, TypeError):
+        return {}
+    return claims if isinstance(claims, dict) else {}
+
+
+def token_phone(token: str | None) -> str | None:
+    """The 9-digit phone number an InPost access token was issued for, if any."""
+    claims = token_claims(token)
+    for key in ("phone", "phone_number", "phoneNumber"):
+        raw = claims.get(key)
+        if isinstance(raw, dict):
+            raw = raw.get("value")
+        digits = "".join(ch for ch in str(raw or "") if ch.isdigit())
+        if len(digits) >= 9:
+            return digits[-9:]
+    return None
+
+
+class PkceLogin:
+    """One browser sign-in attempt: the authorize URL and its PKCE secret."""
+
+    def __init__(self) -> None:
+        self.verifier = _b64url(secrets.token_bytes(48))
+        self.state = _b64url(secrets.token_bytes(24))
+        self._nonce = _b64url(secrets.token_bytes(24))
+
+    @property
+    def url(self) -> str:
+        params = {
+            "response_type": "code",
+            "client_id": OAUTH_CLIENT_ID,
+            "redirect_uri": OAUTH_REDIRECT_URI,
+            "scope": "openid",
+            "code_challenge": _b64url(hashlib.sha256(self.verifier.encode()).digest()),
+            "code_challenge_method": "S256",
+            "state": self.state,
+            "nonce": self._nonce,
+            "response_mode": "query",
+            "lang": "pl-PL",
+            # Always show the form: a browser still signed in to InPost would
+            # otherwise hand back the previous account's code.
+            "prompt": "login",
+        }
+        return f"{OAUTH_AUTHORIZE_URL}?{urllib.parse.urlencode(params)}"
+
+    def extract_code(self, pasted: str) -> str:
+        """Authorization code from the pasted callback URL.
+
+        Raises ValueError with reason "sms" (digits pasted, the old flow),
+        "state" (URL from another attempt) or "no_code".
+        """
+        value = str(pasted or "").strip()
+        if "code=" not in value:
+            raise ValueError("sms" if value.replace(" ", "").isdigit() else "no_code")
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(value).query or value)
+        code = (query.get("code") or [""])[0]
+        if not code:
+            raise ValueError("no_code")
+        state = (query.get("state") or [None])[0]
+        if state is not None and state != self.state:
+            raise ValueError("state")
+        return code
+
+
+@dataclass
+class Tokens:
+    access: str
+    refresh: str
+    expires_at: float
 
 
 def _state_of(status: str, status_group: str | None = None) -> str:
@@ -171,6 +275,17 @@ class InPostApi:
             except json.JSONDecodeError:
                 return e.code, dict(e.headers), {"raw": body}
 
+    def _post_form(self, path: str, form: dict):
+        h = {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            "User-Agent": self._ua,
+            "X-App-Id": APP_ID,
+        }
+        return self._do(urllib.request.Request(
+            self._base + path, data=urllib.parse.urlencode(form).encode(),
+            headers=h, method="POST"))
+
     def _post(self, path: str, body: dict, token: str | None = None):
         h = {"Content-Type": "application/json; charset=UTF-8", "User-Agent": self._ua}
         if token:
@@ -179,32 +294,43 @@ class InPostApi:
             self._base + path, data=json.dumps(body).encode(), headers=h, method="POST"))
 
     def _get(self, path: str, token: str, etag: str | None = None):
-        h = {"User-Agent": self._ua, "Authorization": token}
+        h = {"User-Agent": self._ua, "Authorization": token, "X-App-Id": APP_ID}
         if etag:
             h["If-None-Match"] = etag
         return self._do(urllib.request.Request(self._base + path, headers=h, method="GET"))
 
-    # ---------------- auth ----------------
-    def send_sms(self, prefix: str, value: str) -> bool:
-        st, _h, _d = self._post("/v1/account", {"phoneNumber": {"prefix": prefix, "value": value}})
-        return st == 200
+    # ---------------- auth (OAuth2 + PKCE) ----------------
+    def _token_request(self, form: dict) -> Tokens:
+        st, _h, d = self._post_form(OAUTH_TOKEN_PATH, form)
+        if st in (400, 401, 403, 404):
+            # invalid_grant: code or refresh token used up, expired or revoked.
+            raise ReauthRequired(f"token endpoint HTTP {st} {d}")
+        if st != 200:
+            raise InPostError(f"token endpoint HTTP {st} {d}")
+        if not d.get("access_token") or not d.get("refresh_token"):
+            raise ReauthRequired(f"token response without tokens: {sorted(d)}")
+        return Tokens(
+            access=d["access_token"],
+            refresh=d["refresh_token"],
+            expires_at=time.time() + float(d.get("expires_in") or 0),
+        )
 
-    def verify_sms(self, code: str, prefix: str, value: str) -> tuple[str, str]:
-        st, _h, d = self._post("/v1/account/verification", {
-            "smsCode": str(code), "devicePlatform": "Android",
-            "phoneNumber": {"prefix": prefix, "value": value}})
-        if st == 200 and "authToken" in d:
-            return d["authToken"], d["refreshToken"]
-        raise InPostError(f"verify failed: HTTP {st} {d}")
+    def exchange_code(self, code: str, verifier: str) -> Tokens:
+        """Trade the authorization code from the callback URL for tokens."""
+        return self._token_request({
+            "client_id": OAUTH_CLIENT_ID,
+            "grant_type": "authorization_code",
+            "redirect_uri": OAUTH_REDIRECT_URI,
+            "code_verifier": verifier,
+            "code": code,
+        })
 
-    def refresh(self, refresh_token: str) -> str:
-        st, _h, d = self._post("/v1/authenticate",
-                               {"refreshToken": refresh_token, "phoneOS": "Android"})
-        if st == 200 and "authToken" in d:
-            if d.get("reauthenticationRequired"):
-                raise ReauthRequired()
-            return d["authToken"]
-        raise InPostError(f"refresh failed: HTTP {st} {d}")
+    def refresh(self, refresh_token: str) -> Tokens:
+        return self._token_request({
+            "client_id": OAUTH_CLIENT_ID,
+            "grant_type": "refresh_token",
+            "refresh_token": refresh_token,
+        })
 
     # ---------------- data ----------------
     def get_parcels(self, auth_token: str) -> list[dict]:
@@ -284,3 +410,38 @@ class InPostApi:
         st, _h, d = self._post("/v4/parcels/shared", body, auth_token)
         if st != 200:
             raise InPostError(f"share_parcels failed: HTTP {st} {d}")
+
+
+class InPostSession:
+    """Access token cache for one account; refreshes and tracks rotation.
+
+    Thread-safe: the coordinator calls it from executor threads (poll and share
+    can overlap). `refresh_token` always holds the newest refresh token; the
+    owner persists it when `rotated` is set (single-use tokens would otherwise
+    be lost on restart).
+    """
+
+    def __init__(self, api: InPostApi, refresh_token: str) -> None:
+        self._api = api
+        self.refresh_token = refresh_token
+        self._access: str | None = None
+        self._expires_at = 0.0
+        self._lock = threading.Lock()
+        self.rotated = False
+
+    def authorization(self, force: bool = False) -> str:
+        """`Authorization` header value, refreshing when due (or forced)."""
+        with self._lock:
+            if force or not self._access or time.time() > self._expires_at - EXPIRY_MARGIN:
+                tokens = self._api.refresh(self.refresh_token)
+                self._access, self._expires_at = tokens.access, tokens.expires_at
+                if tokens.refresh != self.refresh_token:
+                    self.refresh_token = tokens.refresh
+                    self.rotated = True
+            return f"Bearer {self._access}"
+
+    def adopt(self, tokens: Tokens) -> None:
+        """Start from tokens just obtained in the config flow."""
+        with self._lock:
+            self._access, self._expires_at = tokens.access, tokens.expires_at
+            self.refresh_token = tokens.refresh

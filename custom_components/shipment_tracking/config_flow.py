@@ -21,7 +21,7 @@ from homeassistant.helpers.selector import (
     SelectSelectorMode,
 )
 
-from .api import InPostApi, InPostError
+from .api import InPostApi, InPostError, PkceLogin, ReauthRequired, token_phone
 from .api_dhl import DhlApi, DhlAuthError, DhlError
 from .api_dpd import DpdApi, DpdError, normalize_phone
 from .api_fedex import FedexApi, FedexError
@@ -43,6 +43,7 @@ from .carriers_orlen_allegro import (
 )
 from .config_flow_orlen_allegro import OrlenAllegroOneFlowMixin
 from .const import (
+    AUTH_OAUTH,
     CARRIER_DHL,
     CARRIER_DPD,
     CARRIER_FEDEX,
@@ -53,6 +54,7 @@ from .const import (
     CONF_ACCOUNT_NUMBER,
     CONF_ALIAS,
     CONF_ARCHIVE_LIMIT,
+    CONF_AUTH,
     CONF_CARRIER,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
@@ -99,6 +101,8 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
         self._device_id: str = ""
         self._orlen_account: OrlenAccountApi | None = None
         self._client_secret: str = ""
+        self._login: PkceLogin | None = None
+        self._pending_refresh: str = ""
 
     # ------------------------- carrier select -------------------------
     async def async_step_user(
@@ -149,79 +153,106 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
     async def async_step_inpost(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
-        errors: dict[str, str] = {}
+        """Alias first; the account itself comes from the browser sign-in."""
         if user_input is not None:
             self._alias = user_input[CONF_ALIAS].strip()
-            self._prefix = user_input[CONF_PREFIX].strip() or "+48"
-            self._phone = user_input[CONF_PHONE].strip()
-            if not (self._phone.isdigit() and len(self._phone) == 9):
-                errors["base"] = "invalid_phone"
-            else:
-                await self.async_set_unique_id(f"inpost_{self._phone}")
-                self._abort_if_unique_id_configured()
-                try:
-                    ok = await self.hass.async_add_executor_job(
-                        _inpost_api().send_sms, self._prefix, self._phone
-                    )
-                except InPostError as err:
-                    _LOGGER.error("InPost send_sms failed: %s", err)
-                    errors["base"] = "cannot_connect"
-                else:
-                    if ok:
-                        return await self.async_step_sms()
-                    errors["base"] = "sms_rejected"
-
+            return await self.async_step_inpost_login()
         return self.async_show_form(
             step_id="inpost",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(CONF_ALIAS): str,
-                    vol.Required(
-                        CONF_PREFIX, default=self._prefix or "+48"
-                    ): SelectSelector(
-                        SelectSelectorConfig(
-                            options=PREFIX_OPTIONS,
-                            mode=SelectSelectorMode.DROPDOWN,
-                            custom_value=True,
-                        )
-                    ),
-                    vol.Required(CONF_PHONE): str,
-                }
-            ),
-            errors=errors,
+            data_schema=vol.Schema({vol.Required(CONF_ALIAS): str}),
         )
 
-    async def async_step_sms(
+    async def async_step_inpost_login(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Browser sign-in on InPost's page, then paste the callback URL.
+
+        InPost signs in with OAuth2 + PKCE behind a Cloudflare captcha and only
+        redirects to its own callback page, so HA cannot finish the login itself.
+        The phone number (unique id, sharing) is read from the access token.
+        """
+        errors: dict[str, str] = {}
+        if self._login is None:
+            self._login = PkceLogin()
+        if user_input is not None:
+            try:
+                code = self._login.extract_code(user_input["callback_url"])
+            except ValueError as err:
+                errors["base"] = {"sms": "paste_url_not_code", "state": "stale_login"}.get(
+                    str(err), "no_code"
+                )
+            else:
+                try:
+                    tokens = await self.hass.async_add_executor_job(
+                        _inpost_api().exchange_code, code, self._login.verifier
+                    )
+                except ReauthRequired as err:
+                    _LOGGER.warning("InPost code exchange rejected: %s", err)
+                    errors["base"] = "code_rejected"
+                    self._login = PkceLogin()  # the code is single use
+                except InPostError as err:
+                    _LOGGER.error("InPost code exchange failed: %s", err)
+                    errors["base"] = "cannot_connect"
+                else:
+                    return await self._async_finish_inpost(tokens.access, tokens.refresh)
+
+        return self.async_show_form(
+            step_id="inpost_login",
+            data_schema=vol.Schema({vol.Required("callback_url"): str}),
+            errors=errors,
+            description_placeholders={"url": self._login.url},
+        )
+
+    async def _async_finish_inpost(self, access: str, refresh: str) -> ConfigFlowResult:
+        phone = token_phone(access)
+        if not phone and self._reauth_entry is not None:
+            phone = str(self._reauth_entry.data.get(CONF_PHONE, ""))
+        if not phone:
+            # No phone claim in the token: ask for it, it keys the entry and
+            # pairs accounts for sharing.
+            _LOGGER.info("InPost access token carries no phone number, asking for it")
+            self._pending_refresh = refresh
+            return await self.async_step_inpost_phone()
+        return await self._async_store_inpost(phone, refresh, from_token=True)
+
+    async def async_step_inpost_phone(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         errors: dict[str, str] = {}
         if user_input is not None:
-            code = str(user_input["code"]).strip()
-            try:
-                _at, refresh_token = await self.hass.async_add_executor_job(
-                    _inpost_api().verify_sms, code, self._prefix, self._phone
-                )
-            except InPostError as err:
-                _LOGGER.warning("InPost verify_sms failed: %s", err)
-                errors["base"] = "invalid_code"
+            phone = "".join(ch for ch in user_input[CONF_PHONE] if ch.isdigit())[-9:]
+            if len(phone) != 9:
+                errors["base"] = "invalid_phone"
             else:
-                data = {
-                    CONF_CARRIER: CARRIER_INPOST,
-                    CONF_ALIAS: self._alias,
-                    CONF_PREFIX: self._prefix,
-                    CONF_PHONE: self._phone,
-                    CONF_REFRESH_TOKEN: refresh_token,
-                }
-                if self._reauth_entry is not None:
-                    return self.async_update_reload_and_abort(self._reauth_entry, data=data)
-                return self.async_create_entry(title=f"InPost — {self._alias}", data=data)
-
+                return await self._async_store_inpost(
+                    phone, self._pending_refresh, from_token=False
+                )
         return self.async_show_form(
-            step_id="sms",
-            data_schema=vol.Schema({vol.Required("code"): str}),
+            step_id="inpost_phone",
+            data_schema=vol.Schema({vol.Required(CONF_PHONE): str}),
             errors=errors,
-            description_placeholders={"phone": f"+{self._prefix.lstrip('+')} {self._phone}"},
         )
+
+    async def _async_store_inpost(
+        self, phone: str, refresh: str, from_token: bool
+    ) -> ConfigFlowResult:
+        if self._reauth_entry is not None and from_token:
+            if phone != str(self._reauth_entry.data.get(CONF_PHONE)):
+                return self.async_abort(reason="wrong_account")
+        else:
+            await self.async_set_unique_id(f"inpost_{phone}")
+            self._abort_if_unique_id_configured()
+        data = {
+            CONF_CARRIER: CARRIER_INPOST,
+            CONF_ALIAS: self._alias,
+            CONF_PREFIX: self._prefix or "+48",
+            CONF_PHONE: phone,
+            CONF_REFRESH_TOKEN: refresh,
+            CONF_AUTH: AUTH_OAUTH,
+        }
+        if self._reauth_entry is not None:
+            return self.async_update_reload_and_abort(self._reauth_entry, data=data)
+        return self.async_create_entry(title=f"InPost — {self._alias}", data=data)
 
     # ----------------------- Orlen (account) --------------------------
     async def async_step_orlen_account(
@@ -612,6 +643,9 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
         self._client_secret = entry_data.get(CONF_CLIENT_SECRET, "")
         if self._carrier == CARRIER_ORLEN_ACCOUNT:
             return await self.async_step_orlen_account_reauth()
+        if self._carrier == CARRIER_INPOST:
+            # Same browser sign-in as setup; the token must be for this phone.
+            return await self.async_step_inpost_login()
         if self._carrier == CARRIER_POCZTEX:
             # No SMS-resend equivalent — just re-show the login form with
             # the email prefilled, same step as initial setup.
@@ -639,13 +673,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                     )
                     if ok:
                         return await self.async_step_dhl_sms()
-                else:
-                    ok = await self.hass.async_add_executor_job(
-                        _inpost_api().send_sms, self._prefix, self._phone
-                    )
-                    if ok:
-                        return await self.async_step_sms()
-            except (InPostError, DpdError, DhlError, OrlenAccountError) as err:
+            except (DpdError, DhlError, OrlenAccountError) as err:
                 _LOGGER.error("reauth send_sms failed: %s", err)
                 errors["base"] = "cannot_connect"
             else:

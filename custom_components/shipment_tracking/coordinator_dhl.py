@@ -71,6 +71,15 @@ def normalize_parcel(p: dict, *, shared: bool = False) -> dict:
     # menuTimelineLabel.status is the field DHL's own app renders; the TT_ code
     # in "status" is never translated anywhere in their bundle. See const.py.
     tl = timeline.get("status")
+    active = dhl_is_active(raw, tl)
+    if active and _LOGGER.isEnabledFor(logging.DEBUG):
+        # Estimated-delivery / delivery-window fields are not confirmed on a live
+        # in-transit DHL payload (only EstimatedDeliveryDate as a caption key in
+        # the menuTimelineLabel.label vocabulary, const.py). Log the raw timeline
+        # and any top-level date keys so the exact field is locked the first time
+        # a real in-transit parcel appears (see issue #7).
+        date_keys = {k: v for k, v in p.items() if "date" in k.lower() or "time" in k.lower()}
+        _LOGGER.debug("DHL active parcel raw timeline=%s date_keys=%s", timeline, date_keys)
     return {
         "number": p.get("shipmentNumber"),
         "sender": p.get("sender"),
@@ -79,7 +88,7 @@ def normalize_parcel(p: dict, *, shared: bool = False) -> dict:
         "status_timeline": tl,
         "canonical": dhl_canonical(raw, tl),
         "updated": timeline.get("dateUtc"),
-        "active": dhl_is_active(raw, tl),
+        "active": active,
         "package_type": p.get("packageType"),
         "shared": shared,
     }

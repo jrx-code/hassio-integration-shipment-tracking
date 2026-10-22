@@ -123,6 +123,17 @@ class DpdCoordinator(DataUpdateCoordinator[dict]):
                     raise  # token died mid-poll -> propagate to trigger reauth
                 except DpdError as err:
                     _LOGGER.debug("DPD detail fetch failed for %s: %s", p.get("waybill"), err)
+                if detail and _LOGGER.isEnabledFor(logging.DEBUG):
+                    # No estimated-delivery / delivery-window field is confirmed on
+                    # a live DPD payload yet (issue #7). Log the delivery object and
+                    # any date/time keys so the exact field is locked the first time
+                    # a real in-transit parcel carries one.
+                    deliv = detail.get("delivery") or {}
+                    date_keys = {
+                        k: v for k, v in detail.items()
+                        if "date" in k.lower() or "time" in k.lower()
+                    }
+                    _LOGGER.debug("DPD active parcel delivery=%s date_keys=%s", deliv, date_keys)
             parcels.append(normalize_parcel(p, detail))
         active = [p for p in parcels if p["active"]]
         delivered = [p for p in parcels if not p["active"]]

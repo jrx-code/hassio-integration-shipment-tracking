@@ -286,7 +286,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             self._alias = user_input[CONF_ALIAS].strip()
             self._phone = user_input[CONF_PHONE].strip()
-            self._client_secret = user_input[CONF_CLIENT_SECRET].strip()
+            self._client_secret = user_input.get(CONF_CLIENT_SECRET, "").strip()
             if not (self._phone.isdigit() and len(self._phone) == 9):
                 errors["base"] = "invalid_phone"
             else:
@@ -367,7 +367,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
         secret, then log in again by SMS."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            self._client_secret = user_input[CONF_CLIENT_SECRET].strip()
+            self._client_secret = user_input.get(CONF_CLIENT_SECRET, "").strip()
             if not self._device_id:
                 self._device_id = str(uuid.uuid4())
             self._orlen_account = OrlenAccountApi(self._client_secret)

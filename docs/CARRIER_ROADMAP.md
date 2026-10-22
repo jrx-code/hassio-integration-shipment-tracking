@@ -44,6 +44,11 @@ With GLS done, UPS is the only top-five operator in either ranking without a mod
 An aggregator never gives account auto-discovery or a locker pickup code, so it can only sit
 next to the native modules, never replace them. Tracking numbers leave the local network.
 
+## Update 2026-10-22
+
+- **GLS Poland ([#6](https://github.com/jrx-code/hassio-integration-shipment-tracking/issues/6)): confirmed feasible, account mode.** GLS PL ships a recipient consumer app, `pl.gls.mygls` (iOS id `6742817504`), separate from the sender/business MyGLS SOAP+REST API (`api.mygls.pl`). Registration is phone number -> SMS code -> password, with two-step verification; after that the app auto-lists parcels addressed to the registered phone/email — the same account-discovery model as DPD Mobile PL. Caveat: a parcel only appears when the sender passed the recipient's phone/email to GLS; others need track-by-number (GLS Live Tracking is free, by number, no login). The backend host and endpoint paths are **undocumented and not reverse-engineered** — the real work item is capturing `pl.gls.mygls` traffic (mitmproxy on an instrumented device) to map the login/OTP and parcel-list calls, exactly as was done for DPD and DHL. Sources (accessed 2026-10-22): gls-group.com/PL/en/meet-mygls/, the myGLS blog gls-group.com/PL/en/blog/myGLS-app/, Play Store `pl.gls.mygls`.
+- **Estimated delivery / delivery window ([#7](https://github.com/jrx-code/hassio-integration-shipment-tracking/issues/7)): instrumentation only.** No live in-transit payload confirms an ETA/window field for any carrier: DPD reads none, DHL exposes `EstimatedDeliveryDate` only as a caption key in the `menuTimelineLabel.label` vocabulary (unparsed, value shape unseen), InPost has none by design. Rather than guess field names, the DPD and DHL coordinators now log the raw `delivery` / `menuTimelineLabel` objects and any date/time keys at debug level for active parcels, so the exact field is locked the first time a real in-transit parcel carries one — the same capture-first method the Orlen account carrier uses.
+
 ## Ruled out
 
 | Carrier | Why not |

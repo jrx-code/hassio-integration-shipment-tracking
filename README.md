@@ -6,7 +6,6 @@
 
 [![Open in HACS](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=jrx-code&repository=hassio-integration-shipment-tracking&category=integration)
 
-![HACS Custom](https://img.shields.io/badge/HACS-Custom-FFCD00?style=flat-square)
 ![Home Assistant](https://img.shields.io/badge/Home_Assistant-2024.1+-18BCF2?style=flat-square&logo=homeassistant&logoColor=white)
 ![deps: segno](https://img.shields.io/badge/deps-segno-3776AB?style=flat-square&logo=python&logoColor=white)
 ![License](https://img.shields.io/github/license/jrx-code/hassio-integration-shipment-tracking?style=flat-square&color=FFCD00)
@@ -177,8 +176,11 @@ Prerequisites and limits:
 
 ### HACS (recommended)
 
-1. HACS → **⋮** → *Custom repositories* → add `https://github.com/jrx-code/hassio-integration-shipment-tracking` as **Integration** — or just click the **Open in HACS** badge above.
-2. Install **Shipment Tracking (InPost, DPD, FedEx, Pocztex, DHL, Orlen Paczka, Allegro One)**, then restart Home Assistant.
+1. HACS (or the Marketplace on Home Assistant 2026.11+) → search for **Shipment Tracking** and download it, or click the **Open in HACS** badge above.
+2. Restart Home Assistant.
+
+If the search finds nothing (the default-store submission is still pending), add it by hand:
+HACS → **⋮** → *Custom repositories* → `https://github.com/jrx-code/hassio-integration-shipment-tracking`, type **Integration**.
 
 ### Manual
 

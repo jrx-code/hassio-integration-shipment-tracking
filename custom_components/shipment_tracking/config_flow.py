@@ -497,8 +497,12 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 _LOGGER.warning("FedEx OAuth validation failed: %s", err)
                 errors["base"] = "invalid_auth"
             else:
-                await self.async_set_unique_id(f"fedex_{client_id}")
-                self._abort_if_unique_id_configured()
+                if self._reauth_entry is None:
+                    await self.async_set_unique_id(f"fedex_{client_id}")
+                    self._abort_if_unique_id_configured()
+                elif client_id != self._reauth_entry.data.get(CONF_CLIENT_ID):
+                    # The unique id is the client id: another one is another entry.
+                    return self.async_abort(reason="wrong_account")
                 data = {
                     CONF_CARRIER: CARRIER_FEDEX,
                     CONF_ALIAS: self._alias or "FedEx",
@@ -506,19 +510,26 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                     CONF_CLIENT_SECRET: client_secret,
                     CONF_ACCOUNT_NUMBER: account_number,
                 }
+                if self._reauth_entry is not None:
+                    return self.async_update_reload_and_abort(
+                        self._reauth_entry, data={**self._reauth_entry.data, **data}
+                    )
                 return self.async_create_entry(
                     title=f"FedEx — {self._alias or account_number or client_id[:8]}",
                     data=data,
                 )
 
+        stored = self._reauth_entry.data if self._reauth_entry is not None else {}
         return self.async_show_form(
             step_id="fedex",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_ALIAS): str,
-                    vol.Required(CONF_CLIENT_ID): str,
+                    vol.Optional(CONF_ALIAS, default=self._alias): str,
+                    vol.Required(CONF_CLIENT_ID, default=stored.get(CONF_CLIENT_ID, "")): str,
                     vol.Required(CONF_CLIENT_SECRET): str,
-                    vol.Optional(CONF_ACCOUNT_NUMBER, default=""): str,
+                    vol.Optional(
+                        CONF_ACCOUNT_NUMBER, default=stored.get(CONF_ACCOUNT_NUMBER, "")
+                    ): str,
                 }
             ),
             errors=errors,
@@ -683,6 +694,9 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
             # the email prefilled, same step as initial setup.
             self._email = entry_data.get(CONF_EMAIL, "")
             return await self.async_step_pocztex()
+        if self._carrier == CARRIER_FEDEX:
+            # Client ID/Secret again, same form as setup; there is no SMS.
+            return await self.async_step_fedex()
         return await self.async_step_reauth_confirm()
 
     async def async_step_reauth_confirm(

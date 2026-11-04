@@ -1,5 +1,5 @@
 {
-  "name": "Shipment Tracking (InPost, DPD, FedEx, Pocztex, DHL)",
+  "name": "Shipment Tracking",
   "content_in_root": false,
   "render_readme": true,
   "country": "PL",

@@ -258,3 +258,35 @@ def test_account_phone_from_parcels_accepts_bare_string_numbers():
 )
 def test_account_phone_from_parcels_none_when_unknown(parcels):
     assert api.account_phone_from_parcels(parcels) is None
+
+
+class _Resp:
+    def __init__(self, status: int, body: bytes) -> None:
+        self.status, self.headers, self._body = status, {}, body
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        return None
+
+
+def test_non_json_200_is_an_inpost_error(monkeypatch):
+    """A bot-protection page answering 200 must not crash the config flow (issue #16)."""
+    monkeypatch.setattr(api.urllib.request, "urlopen",
+                        lambda *a, **k: _Resp(200, b"<html>Just a moment...</html>"))
+    with pytest.raises(api.InPostError, match="non-JSON"):
+        api.InPostApi("https://api.example", "ua").exchange_code("code", "verifier")
+
+
+@pytest.mark.parametrize("exc", [TimeoutError("timed out"), OSError("unreachable"),
+                                 api.urllib.error.URLError("dns")])
+def test_network_failure_is_an_inpost_error(monkeypatch, exc):
+    def boom(*a, **k):
+        raise exc
+    monkeypatch.setattr(api.urllib.request, "urlopen", boom)
+    with pytest.raises(api.InPostError):
+        api.InPostApi("https://api.example", "ua").exchange_code("code", "verifier")

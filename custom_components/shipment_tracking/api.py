@@ -137,6 +137,7 @@ class PkceLogin:
         "login_link" (the authorize link from this step pasted back),
         "not_finished" (a page of the sign-in itself: the form, or InPost's
         location/VPN block), "inpost_error" (the callback carries `error=`),
+        "google_tab" (the address of the Google sign-in tab, `#id_token=`),
         "state" (URL from another attempt) or "no_code".
         """
         value = str(pasted or "").strip()
@@ -153,6 +154,11 @@ class PkceLogin:
                 raise ValueError("login_link")
             if params.get("error"):
                 raise ValueError("inpost_error")
+            if "id_token=" in value:
+                # "Continue with Google" opens Google in a second tab that comes
+                # back as account.inpost-group.com/#id_token=... and hands the
+                # token to the first tab; the callback appears in that first tab.
+                raise ValueError("google_tab")
             if "inpost-group.com/auth" in value:
                 raise ValueError("not_finished")
             raise ValueError("no_code")

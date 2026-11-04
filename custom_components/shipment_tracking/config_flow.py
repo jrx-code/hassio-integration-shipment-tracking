@@ -195,9 +195,16 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
             try:
                 code = self._login.extract_code(user_input["callback_url"])
             except ValueError as err:
-                errors["base"] = {"sms": "paste_url_not_code", "state": "stale_login"}.get(
-                    str(err), "no_code"
-                )
+                if str(err) == "inpost_error":
+                    _LOGGER.warning("InPost sign-in ended with an error: %s",
+                                    user_input["callback_url"].split("?", 1)[-1])
+                errors["base"] = {
+                    "sms": "paste_url_not_code",
+                    "state": "stale_login",
+                    "login_link": "pasted_login_link",
+                    "not_finished": "login_not_finished",
+                    "inpost_error": "login_error",
+                }.get(str(err), "no_code")
             else:
                 try:
                     tokens = await self.hass.async_add_executor_job(

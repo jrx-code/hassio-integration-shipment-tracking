@@ -88,11 +88,37 @@ def test_extract_code_without_state_is_accepted():
         ("https://account.inpost-group.com/callback", "no_code"),
         ("https://account.inpost-group.com/callback?code=", "no_code"),
         ("https://account.inpost-group.com/callback?code=c&state=other", "state"),
+        (api.PkceLogin().url, "login_link"),
+        ("https://account.inpost-group.com/auth?lang=pl-PL&client_id=inpost-mobile&nrc=1",
+         "not_finished"),
+        ("https://account.inpost-group.com/callback?error=login_required"
+         "&error_description=x&state=s", "inpost_error"),
     ],
 )
 def test_extract_code_rejects(pasted, reason):
     with pytest.raises(ValueError, match=reason):
         api.PkceLogin().extract_code(pasted)
+
+
+@pytest.mark.parametrize(
+    "wrap",
+    [
+        "Logowanie | InPost {url}",  # browser "share" copy: title + link
+        "{url_encoded}",
+        "{url_fragment}",
+        "account.inpost-group.com/callback?code=abc123&state={state}",  # no scheme
+    ],
+)
+def test_extract_code_tolerates_copy_variants(wrap):
+    login = api.PkceLogin()
+    url = f"{api.OAUTH_REDIRECT_URI}?code=abc123&state={login.state}"
+    pasted = wrap.format(
+        url=url,
+        url_encoded=urllib.parse.quote(url, safe=""),
+        url_fragment=url.replace("?", "#"),
+        state=login.state,
+    )
+    assert login.extract_code(pasted) == "abc123"
 
 
 # ---------------- token endpoint ----------------

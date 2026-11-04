@@ -127,10 +127,13 @@
       "invalid_code": "Wrong code or verification failed.",
       "invalid_auth": "FedEx rejected these credentials.",
       "invalid_client_secret": "The sign-in server rejected the ORLEN Paczka app client secret.",
-      "no_code": "This is not the address InPost ends the sign-in on (no `code=` in it).",
+      "no_code": "This is not the address InPost ends the sign-in on (no `code=` in it). After signing in, copy the address of the page that starts with `account.inpost-group.com/callback?code=`.",
       "paste_url_not_code": "InPost no longer signs in with an SMS code. Paste the whole page address after signing in.",
       "stale_login": "This address comes from a different sign-in attempt. Use the link shown on this step.",
-      "code_rejected": "InPost rejected the code (already used or expired). Sign in again with the link shown on this step."
+      "code_rejected": "InPost rejected the code (already used or expired). Sign in again with the link shown on this step.",
+      "pasted_login_link": "This is the sign-in link from this step. Open it, sign in, and paste the address of the page you land on afterwards (`account.inpost-group.com/callback?code=`).",
+      "login_not_finished": "This address is from the sign-in page itself, the sign-in did not finish. If InPost says the service is unavailable in your location, turn off VPN/proxy and try again; then paste the address that starts with `account.inpost-group.com/callback?code=`.",
+      "login_error": "InPost ended the sign-in with an error instead of a code. Sign in again with the link from this step."
     },
     "abort": {
       "already_configured": "This account is already configured.",

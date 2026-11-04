@@ -130,20 +130,53 @@ class PkceLogin:
     def extract_code(self, pasted: str) -> str:
         """Authorization code from the pasted callback URL.
 
+        Accepts the URL with text around it (a browser "share" copy), percent
+        encoded once or twice, and with the parameters after `#` instead of `?`.
+
         Raises ValueError with reason "sms" (digits pasted, the old flow),
+        "login_link" (the authorize link from this step pasted back),
+        "not_finished" (a page of the sign-in itself: the form, or InPost's
+        location/VPN block), "inpost_error" (the callback carries `error=`),
         "state" (URL from another attempt) or "no_code".
         """
         value = str(pasted or "").strip()
-        if "code=" not in value:
-            raise ValueError("sms" if value.replace(" ", "").isdigit() else "no_code")
-        query = urllib.parse.parse_qs(urllib.parse.urlsplit(value).query or value)
-        code = (query.get("code") or [""])[0]
+        for _ in range(2):
+            if "code=" in value or "error=" in value or "%3D" not in value.upper():
+                break
+            value = urllib.parse.unquote(value)
+        params = _callback_params(value)
+        code = (params.get("code") or [""])[0]
         if not code:
+            if value.replace(" ", "").isdigit():
+                raise ValueError("sms")
+            if "/oauth2/authorize" in value or "code_challenge=" in value:
+                raise ValueError("login_link")
+            if params.get("error"):
+                raise ValueError("inpost_error")
+            if "inpost-group.com/auth" in value:
+                raise ValueError("not_finished")
             raise ValueError("no_code")
-        state = (query.get("state") or [None])[0]
+        state = (params.get("state") or [None])[0]
         if state is not None and state != self.state:
             raise ValueError("state")
         return code
+
+
+def _callback_params(value: str) -> dict[str, list[str]]:
+    """Query parameters of the callback URL, wherever they ended up.
+
+    The URL may sit inside other text (page title + link), so it is cut out
+    first; parameters are read from the query and then from the fragment.
+    """
+    start = value.find("http")
+    if start >= 0:
+        value = value[start:].split()[0]
+    parts = urllib.parse.urlsplit(value)
+    for part in (parts.query, parts.fragment, value):
+        params = urllib.parse.parse_qs(part)
+        if params.get("code") or params.get("error"):
+            return params
+    return {}
 
 
 @dataclass

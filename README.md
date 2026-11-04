@@ -236,7 +236,12 @@ once after the update; entities and their ids stay as they were. The phone
 number is read from InPost's token or, when the token has none (e-mail sign-in
 may give one), from the receiver of the account's own parcels; a re-auth only
 accepts the same account. Signing in with e-mail (code or password) ends on the
-same callback page as the phone + SMS sign-in, so the paste step is identical. Per-entry
+same callback page as the phone + SMS sign-in, so the paste step is identical. If the
+form answers "This is not the address InPost ends the sign-in on", the pasted address
+is not the callback page: the sign-in link itself, or InPost's sign-in page because the
+login did not finish (InPost blocks VPN/proxy and some locations with "Usługa niedostępna
+w Twojej lokalizacji"). Since v2.13.4 the form names which of these it got, and it also
+accepts the address copied with the page title, percent-encoded or with `#` instead of `?`. Per-entry
 **options**: polling interval (default 15 min), archived/delivered-parcels
 cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an
 ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app

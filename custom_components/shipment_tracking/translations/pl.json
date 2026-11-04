@@ -127,10 +127,13 @@
       "invalid_code": "Błędny kod lub weryfikacja się nie powiodła.",
       "invalid_auth": "FedEx odrzucił te poświadczenia.",
       "invalid_client_secret": "Serwer logowania odrzucił client secret aplikacji ORLEN Paczka.",
-      "no_code": "To nie jest adres, na którym InPost kończy logowanie (brak `code=`).",
+      "no_code": "To nie jest adres, na którym InPost kończy logowanie (brak `code=`). Po zalogowaniu skopiuj adres strony zaczynający się od `account.inpost-group.com/callback?code=`.",
       "paste_url_not_code": "InPost nie loguje już kodem SMS. Wklej cały adres strony po zalogowaniu.",
       "stale_login": "Ten adres pochodzi z innej próby logowania. Użyj linku z tego kroku.",
-      "code_rejected": "InPost odrzucił kod (już użyty albo wygasł). Zaloguj się jeszcze raz linkiem z tego kroku."
+      "code_rejected": "InPost odrzucił kod (już użyty albo wygasł). Zaloguj się jeszcze raz linkiem z tego kroku.",
+      "pasted_login_link": "To jest link do logowania z tego kroku. Otwórz go, zaloguj się i wklej adres strony, na której wylądujesz po zalogowaniu (`account.inpost-group.com/callback?code=`).",
+      "login_not_finished": "Ten adres pochodzi ze strony logowania, logowanie się nie zakończyło. Jeśli InPost pokazuje „Usługa niedostępna w Twojej lokalizacji”, wyłącz VPN/proxy i spróbuj ponownie; potem wklej adres zaczynający się od `account.inpost-group.com/callback?code=`.",
+      "login_error": "InPost zakończył logowanie błędem zamiast kodem. Zaloguj się ponownie linkiem z tego kroku."
     },
     "abort": {
       "already_configured": "To konto jest już skonfigurowane.",

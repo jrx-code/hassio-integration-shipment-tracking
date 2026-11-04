@@ -204,6 +204,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                     "login_link": "pasted_login_link",
                     "not_finished": "login_not_finished",
                     "inpost_error": "login_error",
+                    "google_tab": "google_tab",
                 }.get(str(err), "no_code")
             else:
                 try:

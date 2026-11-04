@@ -134,7 +134,8 @@
       "pasted_login_link": "This is the sign-in link from this step. Open it, sign in, and paste the address of the page you land on afterwards (`account.inpost-group.com/callback?code=`).",
       "login_not_finished": "This address is from the sign-in page itself, the sign-in did not finish. If InPost says the service is unavailable in your location, turn off VPN/proxy and try again; then paste the address that starts with `account.inpost-group.com/callback?code=`.",
       "login_error": "InPost ended the sign-in with an error instead of a code. Sign in again with the link from this step.",
-      "google_tab": "This is the address of the Google sign-in tab, not InPost's. Go back to the first tab with the InPost sign-in: after Google it moves on to the page starting with `account.inpost-group.com/callback?code=`, copy that one. If it stays on the sign-in page, sign in with the phone number of the same InPost account instead."
+      "google_tab": "This is the address of the Google sign-in tab, not InPost's. Go back to the first tab with the InPost sign-in: after Google it moves on to the page starting with `account.inpost-group.com/callback?code=`, copy that one. If it stays on the sign-in page, sign in with the phone number of the same InPost account instead.",
+      "unknown": "Unexpected error during sign-in. The Home Assistant log has the details (search for shipment_tracking); please attach it to an issue."
     },
     "abort": {
       "already_configured": "This account is already configured.",

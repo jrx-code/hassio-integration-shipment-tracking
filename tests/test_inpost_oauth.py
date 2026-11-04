@@ -93,6 +93,8 @@ def test_extract_code_without_state_is_accepted():
          "not_finished"),
         ("https://account.inpost-group.com/callback?error=login_required"
          "&error_description=x&state=s", "inpost_error"),
+        ("https://account.inpost-group.com/#id_token=eyJ.a.b&access_token=ya29.x"
+         "&token_type=Bearer&state=s", "google_tab"),
     ],
 )
 def test_extract_code_rejects(pasted, reason):

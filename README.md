@@ -240,7 +240,10 @@ same callback page as the phone + SMS sign-in, so the paste step is identical. I
 form answers "This is not the address InPost ends the sign-in on", the pasted address
 is not the callback page: the sign-in link itself, or InPost's sign-in page because the
 login did not finish (InPost blocks VPN/proxy and some locations with "Usługa niedostępna
-w Twojej lokalizacji"). Since v2.13.4 the form names which of these it got, and it also
+w Twojej lokalizacji"). "Continue with Google" opens Google in a second tab that
+closes itself and hands the sign-in back to the first tab; the callback address
+appears in that first tab, not in the Google one (`#id_token=...`), and the form says so
+since v2.13.5. Since v2.13.4 the form names which of these it got, and it also
 accepts the address copied with the page title, percent-encoded or with `#` instead of `?`. Per-entry
 **options**: polling interval (default 15 min), archived/delivered-parcels
 cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an

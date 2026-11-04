@@ -11,7 +11,7 @@
 ![License](https://img.shields.io/github/license/jrx-code/hassio-integration-shipment-tracking?style=flat-square&color=FFCD00)
 ![Made in Poland](https://img.shields.io/badge/made_in-🇵🇱_Poland-white?style=flat-square)
 
-**Track your parcels natively in Home Assistant — InPost, DPD, FedEx, Pocztex, DHL, Orlen Paczka and Allegro One — ready-to-pickup, in-transit and archive, as first-class entities.**
+**Track your parcels natively in Home Assistant (InPost, DPD, FedEx, Pocztex, DHL, Orlen Paczka and Allegro One): ready-to-pickup, in-transit and archive, as first-class entities.**
 
 </div>
 
@@ -19,43 +19,43 @@
 
 ## ✨ Features
 
-- 📥 **Do odbioru** (InPost) — how many parcels are ready to pick up, with sender, locker, pickup code, expiry and QR payload in attributes
-- 🚚 **W drodze** (both carriers) — parcels on the way, with human-readable Polish statuses
-- 🗄️ **Archiwum / dostarczone** — recently delivered / closed parcels (capped, configurable)
-- 👥 **Multi-account** — add several accounts per carrier, each as its own device
-- 🤝 **App-to-app sharing** (InPost only) — hand a ready parcel to another configured InPost account (a paired "friend"), on a button press or automatically
-- 🔑 **Official mobile/web auth, no scraping** — InPost signs in on its own page in your browser (OAuth2 + PKCE, you paste back the final address); DPD/DHL use SMS login (DHL's stores a session-cookie snapshot instead of a refresh token, verified to survive a real sliding 30-min window). Pocztex is the exception: its Keycloak session has a hard 30-minute cap that no amount of refreshing can extend, so its config entry stores the account password and re-logs-in every poll instead
-- 🧩 **Almost dependency-free** — stdlib `urllib` client for both carriers; the only requirement is `segno`, for rendering InPost pickup QR codes
-- 🏷️ **Every sensor wears its carrier's own logo** — Home Assistant allows one brand image per integration, so all five carriers would otherwise share one generic parcel box; each carrier's sensors carry the carrier badge as `entity_picture` instead
-- 🎯 **One framework, one entity shape per carrier** — adding a new carrier module doesn't touch the others
+- 📥 **Do odbioru** (InPost): how many parcels are ready to pick up, with sender, locker, pickup code, expiry and QR payload in attributes
+- 🚚 **W drodze** (both carriers): parcels on the way, with human-readable Polish statuses
+- 🗄️ **Archiwum / dostarczone**: recently delivered / closed parcels (capped, configurable)
+- 👥 **Multi-account**: add several accounts per carrier, each as its own device
+- 🤝 **App-to-app sharing** (InPost only): hand a ready parcel to another configured InPost account (a paired "friend"), on a button press or automatically
+- 🔑 **Official mobile/web auth, no scraping**: InPost signs in on its own page in your browser (OAuth2 + PKCE, you paste back the final address); DPD/DHL use SMS login (DHL's stores a session-cookie snapshot instead of a refresh token, verified to survive a real sliding 30-min window). Pocztex is the exception: its Keycloak session has a hard 30-minute cap that no amount of refreshing can extend, so its config entry stores the account password and re-logs-in every poll instead
+- 🧩 **Almost dependency-free**: stdlib `urllib` client for both carriers; the only requirement is `segno`, for rendering InPost pickup QR codes
+- 🏷️ **Every sensor wears its carrier's own logo**: Home Assistant allows one brand image per integration, so all five carriers would otherwise share one generic parcel box; each carrier's sensors carry the carrier badge as `entity_picture` instead
+- 🎯 **One framework, one entity shape per carrier**: adding a new carrier module doesn't touch the others
 
 ## 🧭 How it fits together
 
 <p align="center"><img src=".github/assets/architecture.svg" alt="Five carriers, each with its own auth cycle, feed their own coordinator; all coordinators converge on one dispatch point in sensor.py; InPost fans out to four HA platforms, the other four carriers to one." width="900"></p>
 
-Every carrier authenticates and polls on its own terms — the divergence in
+Every carrier authenticates and polls on its own terms; the divergence in
 the left two columns above is real, not simplified away (`Under the hood`
 below has the specifics). They all land on the same dispatch point in
 `sensor.py`, which is exactly the seam that broke twice in this project's
 history (an un-dispatched carrier crashing on the first real DPD account,
-then again for DHL) — every new carrier module has to be wired in there or
+then again for DHL): every new carrier module has to be wired in there or
 it inherits InPost's entity shape by accident.
 
 ## 📦 Entities
 
-<p align="center"><img src=".github/assets/entities-preview.png" alt="Mock-up of the InPost 'Do odbioru' and DHL 'W drodze' sensor cards, with placeholder sender/locker/code data — not a real account." width="700"></p>
+<p align="center"><img src=".github/assets/entities-preview.png" alt="Mock-up of the InPost 'Do odbioru' and DHL 'W drodze' sensor cards, with placeholder sender/locker/code data, not a real account." width="700"></p>
 
-<p align="center"><sub>Illustrative mock-up — placeholder senders and codes, not a real account.</sub></p>
+<p align="center"><sub>Illustrative mock-up: placeholder senders and codes, not a real account.</sub></p>
 
 ### InPost (per account)
 
 | Entity | State | Key attributes |
 |---|---|---|
-| `sensor` · **Do odbioru** | number ready to pick up — **own + shared with me** | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]` (nadawca, kod odbioru, paczkomat, adres, termin, `qr`), `w_drodze[]` |
-| `sensor` · **W drodze** | number in transit — **own parcels only** | — |
+| `sensor` · **Do odbioru** | number ready to pick up: **own + shared with me** | `do_odbioru_count`, `w_drodze_count`, `do_odbioru[]` (nadawca, kod odbioru, paczkomat, adres, termin, `qr`), `w_drodze[]` |
+| `sensor` · **W drodze** | number in transit: **own parcels only** | none |
 | `sensor` · **Udostępnione** | active parcels **shared with this account** by someone else | `udostepnione[]` (numer, nadawca, status, `od`, kod odbioru, paczkomat, `podglad`), `moje_udostepnione[]` (the other direction, with `dla`), both `_count`s |
 | `sensor` · **Archiwum** | number archived | `archiwum[]` (latest N) |
-| `image` · **QR do odbioru** (×6 slots) | pickup QR per group (multiskrytka collapses to one) | — |
+| `image` · **QR do odbioru** (×6 slots) | pickup QR per group (multiskrytka collapses to one) | none |
 
 > The `qr` payload lets a Lovelace card render the compartment-opening QR client-side.
 > Each `do_odbioru[]` row also reports its sharing state: `wlasciciel` (`OWN` /
@@ -71,9 +71,9 @@ it inherits InPost's entity shape by accident.
 
 | Entity | State | Key attributes |
 |---|---|---|
-| `sensor` · **W drodze** | number of active (not yet delivered) parcels — own plus parcels shared to this account | `active_count`, `delivered_count`, `w_drodze[]` (numer, nadawca, status, aktualizacja, udostepniona), `dostarczone[]` (latest N) |
+| `sensor` · **W drodze** | number of active (not yet delivered) parcels: own plus parcels shared to this account | `active_count`, `delivered_count`, `w_drodze[]` (numer, nadawca, status, aktualizacja, udostepniona), `dostarczone[]` (latest N) |
 
-Only one canonical status is confirmed live (`TT_DOR` → "Dostarczona") — the
+Only one canonical status is confirmed live (`TT_DOR` → "Dostarczona"); the
 research account had a single, already-delivered parcel. Any other status
 code shows up as its raw DHL string rather than a guessed translation; see
 `const.py`'s DHL section.
@@ -84,7 +84,7 @@ code shows up as its raw DHL string rather than a guessed translation; see
 |---|---|---|
 | `sensor` · **W drodze** | number of active (not yet delivered) tracking numbers | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, nadawca_miasto, nadawca_kraj, usluga), `dostarczone[]` (latest N) |
 
-No auto-discovery — FedEx's official Track API is track-by-number only, so
+No auto-discovery: FedEx's official Track API is track-by-number only, so
 the tracked numbers are a manually maintained list in this entry's
 **options**, not an account. A number stays tracked (and counted) whether
 delivered or not until removed from that list.
@@ -95,7 +95,7 @@ delivered or not until removed from that list.
 |---|---|---|
 | `sensor` · **W drodze** | number of active (not yet delivered) parcels | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, postep, aktualizacja), `dostarczone[]` (latest N) |
 
-Poczta Polska's own `state` field is already a Polish label — shown as-is,
+Poczta Polska's own `state` field is already a Polish label, shown as-is,
 no canonical-status mapping needed. `postep` is the raw 0-100 progress
 percentage the API returns; anything under 100 counts as active.
 
@@ -128,7 +128,7 @@ Public JSONP track-by-number (no Partner SOAP secrets). Same Options list patter
 |---|---|---|
 | `sensor` · **W drodze** | number of active (not yet delivered) tracking numbers | `active_count`, `delivered_count`, `w_drodze[]` (numer, status, aktualizacja), `dostarczone[]` (latest N) |
 
-Public edge track-by-number (no Allegro OAuth). Use Allegro-internal waybills (`A…` / `AD…`). **Undocumented internal Accept header — production risk; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md).** Sensors use **`mdi:truck-delivery`** (no badge PNG yet).
+Public edge track-by-number (no Allegro OAuth). Use Allegro-internal waybills (`A…` / `AD…`). **Undocumented internal Accept header, production risk; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md).** Sensors use **`mdi:truck-delivery`** (no badge PNG yet).
 
 ## 🤝 Sharing a parcel with another account (InPost only)
 
@@ -140,12 +140,12 @@ InPost account:
 | `button` · **Udostępnij → \<alias\>** | shares every active parcel not already shared with that account |
 | `switch` · **Auto-udostępnianie → \<alias\>** | keeps doing it for each new parcel, on every poll |
 
-Sharing covers **every active parcel, in transit included** — InPost allows it
+Sharing covers **every active parcel, in transit included**: InPost allows it
 long before the parcel reaches the locker, so the peer follows the whole journey
 and gets the pickup code the moment it exists.
 
-The recipient's account then lists those parcels normally — including pickup code
-and QR — so their sensors, QR image entities and cards need no extra wiring.
+The recipient's account then lists those parcels normally, including pickup code
+and QR, so their sensors, QR image entities and cards need no extra wiring.
 
 The three InPost counters are designed not to overlap, so two mirrored accounts
 never report the same parcel twice:
@@ -169,7 +169,7 @@ Prerequisites and limits:
   entities straight away, and every already-running account is reloaded once so
   it gains the entities aimed at the newcomer. Removing an account takes those
   entities back from its peers the same way.
-- DPD has no equivalent app-to-app sharing API — the button/switch entities
+- DPD has no equivalent app-to-app sharing API: the button/switch entities
   only ever appear on InPost devices.
 
 ## 🚀 Installation
@@ -221,10 +221,10 @@ Pocztex:
 
 Orlen Paczka / Allegro One (same shape as FedEx track-by-number):
 1.  Alias           →  optional
-    (tracking numbers are added afterwards, in Options — see docs/ORLEN_ALLEGRO_ONE.md)
+    (tracking numbers are added afterwards, in Options, see docs/ORLEN_ALLEGRO_ONE.md)
 ```
 
-When a session expires, Home Assistant starts a re-auth for that carrier —
+When a session expires, Home Assistant starts a re-auth for that carrier:
 the browser sign-in again for InPost, a fresh SMS for DPD/DHL, the password
 form again for Pocztex.
 
@@ -250,22 +250,22 @@ accepts the address copied with the page title, percent-encoded or with `#` inst
 **options**: polling interval (default 15 min), archived/delivered-parcels
 cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an
 ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app
-stopped showing — see [Entities](#-entities) above).
+stopped showing; see [Entities](#-entities) above).
 
 ## 🔧 Under the hood
 
 - **InPost OAuth2 + PKCE** (`client_id=inpost-mobile`): browser sign-in on `account.inpost-group.com` (Cloudflare Turnstile), code and refresh at `POST /global/oauth2/token` on the mobile API host. The access token is cached until shortly before it expires; a rotated refresh token is written back to the entry. The legacy SMS endpoints (`/v1/account`, `/v1/authenticate`) answer 404 since 2026-10-12.
-- **DPD SMS auth** via Keycloak (`dpdsso.dpd.com.pl`, realm `DPD`) against the DPD Mobile PL backend — not the GEOPOST myDPD/email+password platform.
-- **DHL SMS auth** behind an Altcha proof-of-work captcha, solved client-side (brute-force `SHA-256(salt+n)==challenge`, a fraction of a second — not an image to click through). Session lives in httpOnly cookies set at login, refreshed with a genuine sliding 30-minute window on every poll.
-- **Pocztex email+password auth** via Keycloak authorization_code+PKCE (`idm.pocztex.pl`, realm `ppsa`) — direct password grant is disabled for this client, so it drives the same browser-less PKCE dance a login page would. Its session has a hard, non-sliding 30-minute cap: refreshing a token doesn't extend it, so this carrier re-logs-in every poll instead (the config entry stores the account password for that, not just a refresh token).
-- **FedEx** uses the official `developer.fedex.com` Track API (OAuth2 client_credentials) — the one carrier here that isn't a reverse-engineered consumer app.
-- **Orlen Paczka** uses the public JSONP status endpoint (no Partner SOAP). **Allegro One** uses `edge.allegro.pl` with an internal Accept media type — fragile by design; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md).
-- **ETag pagination** on InPost's `/v4/parcels/tracked` — InPost (ab)uses `ETag`/`If-None-Match` as a page cursor; a naive single GET misses recent parcels.
+- **DPD SMS auth** via Keycloak (`dpdsso.dpd.com.pl`, realm `DPD`) against the DPD Mobile PL backend, not the GEOPOST myDPD/email+password platform.
+- **DHL SMS auth** behind an Altcha proof-of-work captcha, solved client-side (brute-force `SHA-256(salt+n)==challenge`, a fraction of a second, not an image to click through). Session lives in httpOnly cookies set at login, refreshed with a genuine sliding 30-minute window on every poll.
+- **Pocztex email+password auth** via Keycloak authorization_code+PKCE (`idm.pocztex.pl`, realm `ppsa`); direct password grant is disabled for this client, so it drives the same browser-less PKCE dance a login page would. Its session has a hard, non-sliding 30-minute cap: refreshing a token doesn't extend it, so this carrier re-logs-in every poll instead (the config entry stores the account password for that, not just a refresh token).
+- **FedEx** uses the official `developer.fedex.com` Track API (OAuth2 client_credentials): the one carrier here that isn't a reverse-engineered consumer app.
+- **Orlen Paczka** uses the public JSONP status endpoint (no Partner SOAP). **Allegro One** uses `edge.allegro.pl` with an internal Accept media type, fragile by design; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md).
+- **ETag pagination** on InPost's `/v4/parcels/tracked`: InPost (ab)uses `ETag`/`If-None-Match` as a page cursor; a naive single GET misses recent parcels.
 - Blocking `urllib` clients for every carrier, driven from Home Assistant's executor; InPost `304` responses keep the last snapshot.
 - **Carrier badges** are 256² PNGs served by the integration itself at
   `/shipment_tracking/logo/<carrier>.png` and pointed at by `entity_picture`.
   The frontend crops a picture to a circle, so each badge puts the mark on the
-  carrier's own colour with the mark inscribed in that circle — a bare wordmark
+  carrier's own colour with the mark inscribed in that circle; a bare wordmark
   would be cut down to its middle stripe.
 - Every carrier's unique_ids and device identifiers are carrier-prefixed
   (`inpost_<phone>_...`, `dpd_<phone>_...`, `dhl_<entry_id>_...`, ...) so the
@@ -322,7 +322,7 @@ Steps:
 
 ## ⚠️ Disclaimer
 
-Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, DHL, Poczta Polska/Pocztex, Orlen Paczka, or Allegro. For InPost/DPD/Pocztex/DHL it talks to each carrier's consumer mobile/web API on your behalf using your own account; FedEx uses their official, documented developer API instead; Orlen Paczka uses a public JSONP status endpoint; Allegro One uses an undocumented public edge endpoint (operator accepts breakage risk — see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md)). Use it at your own discretion. All carrier names and logos belong to their respective owners.
+Unofficial integration, not affiliated with or endorsed by InPost, DPD, FedEx, DHL, Poczta Polska/Pocztex, Orlen Paczka, or Allegro. For InPost/DPD/Pocztex/DHL it talks to each carrier's consumer mobile/web API on your behalf using your own account; FedEx uses their official, documented developer API instead; Orlen Paczka uses a public JSONP status endpoint; Allegro One uses an undocumented public edge endpoint (operator accepts breakage risk; see [`docs/ORLEN_ALLEGRO_ONE.md`](docs/ORLEN_ALLEGRO_ONE.md)). Use it at your own discretion. All carrier names and logos belong to their respective owners.
 
 ## 📄 License
 

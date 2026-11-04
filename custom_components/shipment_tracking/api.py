@@ -327,13 +327,24 @@ class InPostApi:
             self._ctx = ssl.create_default_context()
         try:
             with urllib.request.urlopen(req, timeout=25, context=self._ctx) as r:
-                return r.status, dict(r.headers), json.loads(r.read().decode() or "{}")
+                body = r.read().decode(errors="replace") or "{}"
+                try:
+                    return r.status, dict(r.headers), json.loads(body)
+                except json.JSONDecodeError as err:
+                    # A 200 that is not JSON: a proxy or bot-protection page.
+                    raise InPostError(
+                        f"{req.full_url.split('?', 1)[0]}: HTTP {r.status} non-JSON body: {body[:200]!r}"
+                    ) from err
         except urllib.error.HTTPError as e:
-            body = e.read().decode() or "{}"
+            body = e.read().decode(errors="replace") or "{}"
             try:
                 return e.code, dict(e.headers), json.loads(body)
             except json.JSONDecodeError:
                 return e.code, dict(e.headers), {"raw": body}
+        except (urllib.error.URLError, TimeoutError, OSError) as err:
+            # DNS, refused connection, TLS, timeout: InPostError like any other
+            # failure, so callers report it instead of crashing the flow.
+            raise InPostError(f"{req.full_url.split('?', 1)[0]}: {err}") from err
 
     def _post_form(self, path: str, form: dict):
         h = {

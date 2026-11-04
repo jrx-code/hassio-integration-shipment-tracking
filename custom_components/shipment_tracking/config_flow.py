@@ -218,6 +218,10 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 except InPostError as err:
                     _LOGGER.error("InPost code exchange failed: %s", err)
                     errors["base"] = "cannot_connect"
+                except Exception:  # anything else must not end as "Unknown error"
+                    _LOGGER.exception("InPost code exchange: unexpected error")
+                    errors["base"] = "unknown"
+                    self._login = PkceLogin()
                 else:
                     return await self._async_finish_inpost(tokens.access, tokens.refresh)
 

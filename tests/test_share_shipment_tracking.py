@@ -165,7 +165,8 @@ def test_auto_share_unique_id_matches_switch_key_scheme():
 def test_owner_label_prefers_configured_alias_over_bare_digits():
     p = dict(_parcel("111", ownership="FRIEND"), owner_phone="555000001")
     friends = [{"uuid": "x", "name": "555000001", "phone": "555000001"}]
-    assert owner_label(p, friends) == "555000001"
+    assert owner_label(p, friends) is None
+    assert owner_label(p, [{"uuid": "x", "name": "+48 555 000 001", "phone": "555000001"}]) is None
     assert owner_label(p, friends, {"555000001": "Peer A"}) == "Peer A"
 
 
@@ -224,3 +225,19 @@ def test_configured_aliases_only_covers_inpost_entries():
     dpd = _FakeEntry("e2", "555000012", carrier="dpd", alias="Peer D DPD")
     hass = _FakeHass([inpost, dpd])
     assert _mod.configured_aliases(hass) == {"555000011": "Peer A"}
+
+
+def test_owner_label_never_falls_back_to_the_number():
+    p = dict(_parcel("111", ownership="FRIEND"), owner_phone="555000009")
+    assert owner_label(p, [PEER_B]) is None
+    assert owner_label(p, [{"uuid": "x", "phone": "555000009"}]) is None
+
+
+def test_configured_aliases_skip_entries_without_alias():
+    bare = _FakeEntry("e1", "555000011", carrier=CARRIER_INPOST)
+    assert _mod.configured_aliases(_FakeHass([bare])) == {}
+
+
+def test_peer_alias_masks_the_number_without_alias():
+    assert _mod.peer_alias(_FakeEntry("e1", "555000011", carrier=CARRIER_INPOST)) == "…011"
+    assert _mod.peer_alias(_FakeEntry("e1", "555000011", carrier=CARRIER_INPOST, alias="Peer A")) == "Peer A"

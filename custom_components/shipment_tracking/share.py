@@ -91,16 +91,31 @@ def auto_share_unique_id(owner_phone: str, peer_phone: str) -> str:
     return f"inpost_{owner_phone}_auto_share_{peer_phone}"
 
 
-def peer_alias(entry: ConfigEntry) -> str:
-    """Name for a peer account in entity names and attributes.
+def display_alias(data, fallback: str) -> str:
+    """Account name for device names, titles and attributes.
 
-    Without an alias, only the last three digits of the number, so the full
-    number never reaches a state attribute.
+    The alias is optional for some carriers and older entries stored the
+    number itself as the alias. Neither may reach entity state, so an alias
+    that is the number, or no alias, becomes the last three digits.
     """
-    if entry.data.get(CONF_ALIAS):
-        return entry.data[CONF_ALIAS]
-    phone = str(entry.data.get(CONF_PHONE) or "")
-    return f"…{phone[-3:]}" if phone else entry.entry_id
+    alias = str(data.get(CONF_ALIAS) or "")
+    phone = str(data.get(CONF_PHONE) or "")
+    if alias and not (phone and _shows_number(alias, phone)) and not _is_number(alias):
+        return alias
+    return f"…{phone[-3:]}" if phone else fallback
+
+
+def peer_alias(entry: ConfigEntry) -> str:
+    """Name for a peer account in entity names and attributes."""
+    return display_alias(entry.data, entry.entry_id)
+
+
+def masked_name(name: str | None) -> str | None:
+    """A name from InPost, or its last three digits when the name is a number."""
+    if name and _is_number(name):
+        digits = "".join(c for c in str(name) if c.isdigit())
+        return f"…{digits[-3:]}"
+    return name
 
 
 def friend_uuid(friends: list[dict], phone: str) -> str | None:
@@ -185,6 +200,13 @@ def owner_label(
             name = f.get("name")
             return name if name and not _shows_number(name, phone) else None
     return None
+
+
+def _is_number(name: str) -> bool:
+    """True when ``name`` is only a phone number (digits, spaces, + and -)."""
+    s = str(name)
+    digits = sum(c.isdigit() for c in s)
+    return digits >= 6 and all(c.isdigit() or c in " +-()." for c in s)
 
 
 def _shows_number(name: str, phone: str) -> bool:

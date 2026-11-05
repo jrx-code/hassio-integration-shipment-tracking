@@ -14,7 +14,6 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CARRIER_DPD,
-    CONF_ALIAS,
     CONF_ARCHIVE_LIMIT,
     CONF_PHONE,
     DEFAULT_ARCHIVE_LIMIT,
@@ -22,6 +21,7 @@ from .const import (
 )
 from .coordinator_dpd import DpdCoordinator
 from .logos import logo_url
+from .share import display_alias
 
 
 async def async_setup_dpd_sensors(
@@ -71,7 +71,7 @@ class DpdActiveSensor(CoordinatorEntity[DpdCoordinator], SensorEntity):
     def __init__(self, coordinator: DpdCoordinator) -> None:
         super().__init__(coordinator)
         phone = coordinator.entry.data[CONF_PHONE]
-        alias = coordinator.entry.data.get(CONF_ALIAS, phone)
+        alias = display_alias(coordinator.entry.data, "DPD")
         self._attr_unique_id = f"dpd_{phone}_active"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"dpd_{phone}")},

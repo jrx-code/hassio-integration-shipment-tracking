@@ -241,3 +241,20 @@ def test_configured_aliases_skip_entries_without_alias():
 def test_peer_alias_masks_the_number_without_alias():
     assert _mod.peer_alias(_FakeEntry("e1", "555000011", carrier=CARRIER_INPOST)) == "…011"
     assert _mod.peer_alias(_FakeEntry("e1", "555000011", carrier=CARRIER_INPOST, alias="Peer A")) == "Peer A"
+
+
+def test_display_alias_never_returns_the_number():
+    da = _mod.display_alias
+    assert da({"alias": "Peer A", "phone": "555000011"}, "DPD") == "Peer A"
+    assert da({"alias": "555000011", "phone": "555000011"}, "DPD") == "…011"
+    assert da({"alias": "+48 555 000 011", "phone": "555000011"}, "DPD") == "…011"
+    assert da({"alias": "", "phone": "555000011"}, "DPD") == "…011"
+    assert da({"phone": "555000011"}, "DHL") == "…011"
+    assert da({}, "DHL") == "DHL"
+
+
+def test_masked_name_hides_a_number_but_keeps_a_name():
+    assert _mod.masked_name("Peer B") == "Peer B"
+    assert _mod.masked_name("555000002") == "…002"
+    assert _mod.masked_name("+48 555-000-002") == "…002"
+    assert _mod.masked_name(None) is None

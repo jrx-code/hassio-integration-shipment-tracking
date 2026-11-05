@@ -14,13 +14,13 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import (
     CARRIER_DHL,
-    CONF_ALIAS,
     CONF_ARCHIVE_LIMIT,
     DEFAULT_ARCHIVE_LIMIT,
     DOMAIN,
 )
 from .coordinator_dhl import DhlCoordinator
 from .logos import logo_url
+from .share import display_alias
 
 
 async def async_setup_dhl_sensors(
@@ -54,7 +54,7 @@ class DhlActiveSensor(CoordinatorEntity[DhlCoordinator], SensorEntity):
     def __init__(self, coordinator: DhlCoordinator) -> None:
         super().__init__(coordinator)
         entry_id = coordinator.entry.entry_id
-        alias = coordinator.entry.data.get(CONF_ALIAS, "DHL")
+        alias = display_alias(coordinator.entry.data, "DHL")
         self._attr_unique_id = f"dhl_{entry_id}_active"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"dhl_{entry_id}")},

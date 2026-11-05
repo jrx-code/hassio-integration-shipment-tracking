@@ -4,9 +4,9 @@ from __future__ import annotations
 from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import CONF_ALIAS, CONF_PHONE, DOMAIN, status_pl
+from .const import CONF_PHONE, DOMAIN, status_pl
 from .coordinator import InPostCoordinator
-from .share import owner_label
+from .share import display_alias, masked_name, owner_label
 
 
 class InPostEntity(CoordinatorEntity[InPostCoordinator]):
@@ -23,7 +23,7 @@ class InPostEntity(CoordinatorEntity[InPostCoordinator]):
     def __init__(self, coordinator: InPostCoordinator, key: str) -> None:
         super().__init__(coordinator)
         phone = coordinator.entry.data[CONF_PHONE]
-        alias = coordinator.entry.data.get(CONF_ALIAS, phone)
+        alias = display_alias(coordinator.entry.data, "InPost")
         self._attr_unique_id = f"inpost_{phone}_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, f"inpost_{phone}")},
@@ -95,7 +95,7 @@ def shared_out_attrs(parcels: list[dict]) -> list[dict]:
             "numer": p.get("shipment"),
             "nadawca": p.get("sender"),
             "status": status_pl(p.get("status")),
-            "dla": [s.get("name") for s in p.get("shared_to") or []],
+            "dla": [masked_name(s.get("name")) for s in p.get("shared_to") or []],
             "kod_odbioru": p.get("open_code"),
             "paczkomat": p.get("locker"),
         }

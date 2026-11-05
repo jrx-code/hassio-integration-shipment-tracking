@@ -81,6 +81,7 @@ from .const import (
     DEFAULT_UA,
     DOMAIN,
 )
+from .share import display_alias
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -460,7 +461,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 _LOGGER.warning("DPD register failed: %s", err)
                 errors["base"] = "invalid_code"
             else:
-                alias = self._alias or self._phone
+                alias = self._alias
                 data = {
                     CONF_CARRIER: CARRIER_DPD,
                     CONF_ALIAS: alias,
@@ -469,7 +470,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 }
                 if self._reauth_entry is not None:
                     return self.async_update_reload_and_abort(self._reauth_entry, data=data)
-                return self.async_create_entry(title=f"DPD — {alias}", data=data)
+                return self.async_create_entry(title=f"DPD — {display_alias(data, 'DPD')}", data=data)
 
         return self.async_show_form(
             step_id="dpd_sms",
@@ -656,7 +657,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 _LOGGER.warning("DHL verify_sms failed: %s", err)
                 errors["base"] = "invalid_code"
             else:
-                alias = self._alias or self._phone
+                alias = self._alias
                 data = {
                     CONF_CARRIER: CARRIER_DHL,
                     CONF_ALIAS: alias,
@@ -666,7 +667,7 @@ class ShipmentConfigFlow(OrlenAllegroOneFlowMixin, ConfigFlow, domain=DOMAIN):
                 }
                 if self._reauth_entry is not None:
                     return self.async_update_reload_and_abort(self._reauth_entry, data=data)
-                return self.async_create_entry(title=f"DHL — {alias}", data=data)
+                return self.async_create_entry(title=f"DHL — {display_alias(data, 'DHL')}", data=data)
 
         return self.async_show_form(
             step_id="dhl_sms",

@@ -24,9 +24,10 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
 from . import ShipmentConfigEntry
-from .const import CONF_ALIAS, CONF_PHONE, DOMAIN, QR_SLOTS
+from .const import CONF_PHONE, DOMAIN, QR_SLOTS
 from .coordinator import InPostCoordinator
 from .pickup import group_qr_payload
+from .share import display_alias
 
 
 async def async_setup_entry(
@@ -53,7 +54,7 @@ class InPostQrImage(CoordinatorEntity[InPostCoordinator], ImageEntity):
         ImageEntity.__init__(self, hass)
         self._slot = slot
         phone = coordinator.entry.data[CONF_PHONE]
-        alias = coordinator.entry.data.get(CONF_ALIAS, phone)
+        alias = display_alias(coordinator.entry.data, "InPost")
         if slot == 0:
             self._attr_unique_id = f"inpost_{phone}_qr"
             self._attr_name = "QR do odbioru"

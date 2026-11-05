@@ -50,7 +50,6 @@ def _active_row(p: dict) -> dict:
             "adres_nadawcy": p.get("sender_address"),
             "gps_doreczenia": p.get("delivery_gps"),
             "kurier": p.get("courier_name"),
-            "telefon_kuriera": p.get("courier_phone"),
         }
     )
     if p.get("mps_count"):

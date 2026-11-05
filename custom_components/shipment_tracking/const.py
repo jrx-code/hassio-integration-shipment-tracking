@@ -41,7 +41,7 @@ each needs its own reverse-engineering spike, same as DPD got 2026-08-06).
 
 **Cutover to prod done 2026-08-25** (same day as the parity merge — Faza 4 of
 the rework plan, no SMS re-onboarding needed): the three ``inpost``-domain
-config entries (three) carried a non-rotating refresh_token, so
+config entries carried a non-rotating refresh_token, so
 new ``shipment_tracking`` entries were created directly in
 ``core.config_entries`` reusing those tokens, verified live, then the old
 ``inpost`` entries were deleted and the 42 resulting entities (which had

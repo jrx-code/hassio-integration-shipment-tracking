@@ -121,7 +121,7 @@ async def async_remove_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) ->
     those back, or a surviving account keeps a permanently-broken "Udostępnij →
     <removed alias>" button with no coordinator behind it (found live 2026-08-25
     — deleting one account left four orphaned button/switch entities
-    on two real devices).
+    on the other accounts' devices).
 
     InPost-only, like the add-side reload — DPD has no sharing feature. Runs
     even though this entry itself is already gone; peer_entries() filtering out

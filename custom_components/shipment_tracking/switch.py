@@ -79,7 +79,6 @@ class InPostAutoShareSwitch(InPostEntity, SwitchEntity, RestoreEntity):
         uuid = self.coordinator.friend_uuid_for(self._peer_phone)
         return {
             "odbiorca": self._peer_alias,
-            "telefon": self._peer_phone,
             "sparowani": uuid is not None,
             "do_udostepnienia": len(self.coordinator.pending_for(uuid)) if uuid else 0,
         }

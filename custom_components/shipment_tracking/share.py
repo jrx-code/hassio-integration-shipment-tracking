@@ -65,8 +65,9 @@ def configured_aliases(hass: HomeAssistant) -> dict[str, str]:
     out: dict[str, str] = {}
     for e in _inpost_entries(hass):
         phone = e.data.get(CONF_PHONE)
-        if phone:
-            out[str(phone)] = e.data.get(CONF_ALIAS) or str(phone)
+        alias = e.data.get(CONF_ALIAS)
+        if phone and alias:
+            out[str(phone)] = alias
     return out
 
 
@@ -91,7 +92,15 @@ def auto_share_unique_id(owner_phone: str, peer_phone: str) -> str:
 
 
 def peer_alias(entry: ConfigEntry) -> str:
-    return entry.data.get(CONF_ALIAS) or entry.data.get(CONF_PHONE) or entry.entry_id
+    """Name for a peer account in entity names and attributes.
+
+    Without an alias, only the last three digits of the number, so the full
+    number never reaches a state attribute.
+    """
+    if entry.data.get(CONF_ALIAS):
+        return entry.data[CONF_ALIAS]
+    phone = str(entry.data.get(CONF_PHONE) or "")
+    return f"…{phone[-3:]}" if phone else entry.entry_id
 
 
 def friend_uuid(friends: list[dict], phone: str) -> str | None:
@@ -157,20 +166,28 @@ def shared_in(parcels: list[dict]) -> list[dict]:
 def owner_label(
     parcel: dict, friends: list[dict], aliases: dict[str, str] | None = None
 ) -> str | None:
-    """Who shared this parcel with us — best name available, else the number.
+    """Who shared this parcel with us, by name only, never by number.
 
     The sharing account stays in the parcel's ``receiver``. An alias from another
     account configured here wins, because InPost's friend entry often carries no
-    name at all and the app then shows bare digits. Otherwise fall back to the
-    friend's name from InPost, and finally to the number itself.
+    name at all. Otherwise use the friend's name from InPost. A friend entry
+    whose name is just the number gives None: the result lands in a state
+    attribute, which the recorder and every HA user can read.
     """
     phone = parcel.get("owner_phone")
     if not phone:
         return None
     phone = str(phone)
-    if aliases and phone in aliases:
+    if aliases and aliases.get(phone):
         return aliases[phone]
     for f in friends or []:
         if f.get("phone") and str(f["phone"]) == phone:
-            return f.get("name") or phone
-    return phone
+            name = f.get("name")
+            return name if name and not _shows_number(name, phone) else None
+    return None
+
+
+def _shows_number(name: str, phone: str) -> bool:
+    """True when ``name`` is the phone number itself, with or without a prefix."""
+    digits = "".join(c for c in str(name) if c.isdigit())
+    return len(digits) >= 6 and (digits.endswith(phone) or phone.endswith(digits))

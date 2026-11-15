@@ -118,6 +118,21 @@ CONF_TRACKING_NUMBERS = "tracking_numbers"
 # up server-side; it can only stop showing it locally.
 CONF_IGNORED_SHIPMENTS = "ignored_shipments"
 
+# A sender can buy a label and never hand the parcel over. InPost keeps
+# returning such a record as CONFIRMED ("created, not ready to be sent") for
+# weeks (seen live 2026-11-15: labels from 13.10 and 30.10 still only
+# "confirmed" in the public ShipX tracking), and it sat in "w drodze" forever.
+# After this many days without being sent it moves to its own sensor
+# ("Utworzone i nienadane"); 0 turns the move off (issue #4).
+CONF_UNSENT_DAYS = "unsent_after_days"
+DEFAULT_UNSENT_DAYS = 7
+# Statuses before the parcel reaches InPost: the label exists, nothing moved.
+UNSENT = {"CREATED", "OFFERS_PREPARED", "OFFER_SELECTED", "CONFIRMED"}
+# Public ShipX tracking, no auth: the only place with the label's creation date
+# (verified live 2026-11-15, field created_at). The mobile payload has no
+# creation date this integration knows of.
+SHIPX_TRACKING = "https://api-shipx-pl.easypack24.net/v1/tracking/{number}"
+
 # ---- Options ----
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_ARCHIVE_LIMIT = "archive_limit"

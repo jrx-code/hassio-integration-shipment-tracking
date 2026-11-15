@@ -88,6 +88,21 @@ def transit_attrs(parcels: list[dict]) -> list[dict]:
     ]
 
 
+def unsent_attrs(parcels: list[dict]) -> list[dict]:
+    """`nienadane[]`: labels created long ago that never reached InPost (issue #4)."""
+    return [
+        {
+            "numer": p.get("shipment"),
+            "nadawca": p.get("sender"),
+            "paczkomat": p.get("locker"),
+            "status": status_pl(p.get("status")),
+            "utworzona": p.get("created"),
+            "dni": p.get("unsent_days"),
+        }
+        for p in parcels
+    ]
+
+
 def shared_out_attrs(parcels: list[dict]) -> list[dict]:
     """`udostepnione[]` — our parcels handed to somebody else."""
     return [

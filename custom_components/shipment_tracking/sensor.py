@@ -35,6 +35,7 @@ from .entity import (
     shared_in_attrs,
     shared_out_attrs,
     transit_attrs,
+    unsent_attrs,
 )
 from .logos import logo_url
 from .sensor_allegro_one import async_setup_allegro_one_sensors
@@ -89,6 +90,7 @@ async def async_setup_entry(
             ),
             InPostSharedSensor(coordinator),
             InPostArchiveSensor(coordinator),
+            InPostUnsentSensor(coordinator),
         ]
     )
 
@@ -223,3 +225,35 @@ class InPostArchiveSensor(InPostEntity, SensorEntity):
     def extra_state_attributes(self) -> dict:
         data = self.coordinator.data or {}
         return {"archiwum": archive_attrs(data.get("archived", []), self.coordinator.archive_limit)}
+
+
+class InPostUnsentSensor(InPostEntity, SensorEntity):
+    """Own parcels whose label was created but never sent (issue #4).
+
+    A CONFIRMED parcel older than the ``unsent_after_days`` option leaves
+    "W drodze" and is listed here instead, so it no longer counts as on the way
+    and is not auto-shared. Name translated (pl/en), unlike the older sensors.
+    """
+
+    _attr_entity_picture = _ZNAK
+    _attr_translation_key = "unsent"
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_native_unit_of_measurement = "szt."
+    _attr_icon = "mdi:package-variant-remove"
+
+    def __init__(self, coordinator) -> None:
+        super().__init__(coordinator, "nienadane")
+
+    def _own(self) -> list[dict]:
+        return own_only((self.coordinator.data or {}).get("unsent", []))
+
+    @property
+    def native_value(self) -> int:
+        return len(self._own())
+
+    @property
+    def extra_state_attributes(self) -> dict:
+        return {
+            "po_dniach": self.coordinator.unsent_days,
+            "nienadane": unsent_attrs(self._own()),
+        }

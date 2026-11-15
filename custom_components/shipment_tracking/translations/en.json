@@ -152,8 +152,19 @@
           "archive_limit": "Delivered/archived parcels shown (0-100)",
           "notify_ready": "Notify on ready-to-pickup",
           "tracking_numbers_csv": "Tracking numbers, comma-separated (FedEx / Orlen Paczka / Allegro One)",
+          "unsent_after_days": "Hide a parcel that was never sent after (days, 0 = never)",
           "ignored_shipments_csv": "Ignored shipment numbers, comma-separated (InPost only) — hides zombie records InPost's own app no longer shows"
+        },
+        "data_description": {
+          "unsent_after_days": "After this many days a parcel whose label was created but never sent leaves \"On the way\" and moves to the \"Created, not sent\" sensor."
         }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "unsent": {
+        "name": "Created, not sent"
       }
     }
   }

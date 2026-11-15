@@ -55,6 +55,7 @@ it inherits InPost's entity shape by accident.
 | `sensor` · **W drodze** | number in transit: **own parcels only** | none |
 | `sensor` · **Udostępnione** | active parcels **shared with this account** by someone else | `udostepnione[]` (numer, nadawca, status, `od`, kod odbioru, paczkomat, `podglad`), `moje_udostepnione[]` (the other direction, with `dla`), both `_count`s |
 | `sensor` · **Archiwum** | number archived | `archiwum[]` (latest N) |
+| `sensor` · **Utworzone i nienadane** (en: *Created, not sent*) | own parcels whose label was created but never sent for longer than the option allows (default 7 days); they leave **W drodze** and are not auto-shared | `po_dniach`, `nienadane[]` (numer, nadawca, status, `utworzona`, `dni`) |
 | `image` · **QR do odbioru** (×6 slots) | pickup QR per group (multiskrytka collapses to one) | none |
 
 > The `qr` payload lets a Lovelace card render the compartment-opening QR client-side.
@@ -250,7 +251,9 @@ accepts the address copied with the page title, percent-encoded or with `#` inst
 **options**: polling interval (default 15 min), archived/delivered-parcels
 cap; FedEx / Orlen Paczka / Allegro One additionally have their tracking-number list there, InPost an
 ignored-shipment-numbers list (hides a stuck/zombie record InPost's own app
-stopped showing; see [Entities](#-entities) above).
+stopped showing; see [Entities](#-entities) above) and the number of days after which a
+parcel that was never sent moves to **Utworzone i nienadane** (default 7, 0 = never; the
+creation date comes from InPost's public ShipX tracking).
 
 ## 🔧 Under the hood
 

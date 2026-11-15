@@ -152,8 +152,19 @@
           "archive_limit": "Liczba pokazywanych paczek dostarczonych/archiwalnych (0-100)",
           "notify_ready": "Powiadamiaj o gotowych do odbioru",
           "tracking_numbers_csv": "Numery przesyłek, oddzielone przecinkami (FedEx / Orlen Paczka / Allegro One)",
+          "unsent_after_days": "Ukryj nienadaną przesyłkę po (dni, 0 = nigdy)",
           "ignored_shipments_csv": "Ignorowane numery przesyłek, oddzielone przecinkami (tylko InPost) — ukrywa zombie-rekordy, których apka InPost już nie pokazuje"
+        },
+        "data_description": {
+          "unsent_after_days": "Po tylu dniach przesyłka z utworzoną etykietą, której nadawca nie nadał, znika z „W drodze” i trafia do sensora „Utworzone i nienadane”."
         }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "unsent": {
+        "name": "Utworzone i nienadane"
       }
     }
   }

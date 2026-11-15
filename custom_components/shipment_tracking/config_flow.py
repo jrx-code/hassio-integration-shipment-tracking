@@ -76,9 +76,11 @@ from .const import (
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
     CONF_TRACKING_NUMBERS,
+    CONF_UNSENT_DAYS,
     DEFAULT_ARCHIVE_LIMIT,
     DEFAULT_BASE,
     DEFAULT_UA,
+    DEFAULT_UNSENT_DAYS,
     DOMAIN,
 )
 from .share import display_alias
@@ -797,6 +799,12 @@ class ShipmentOptionsFlow(OptionsFlow):
                 default=", ".join(opts.get(CONF_TRACKING_NUMBERS, [])),
             )] = str
         if needs_ignore_list:
+            # Days before a label that was never sent leaves "W drodze" for the
+            # "Utworzone i nienadane" sensor; 0 keeps it in transit (issue #4).
+            schema[vol.Optional(
+                CONF_UNSENT_DAYS,
+                default=opts.get(CONF_UNSENT_DAYS, DEFAULT_UNSENT_DAYS),
+            )] = vol.All(vol.Coerce(int), vol.Range(min=0, max=365))
             schema[vol.Optional(
                 "ignored_shipments_csv",
                 default=", ".join(opts.get(CONF_IGNORED_SHIPMENTS, [])),

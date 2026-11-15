@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry, ConfigEntryState
 from homeassistant.core import HomeAssistant, callback
@@ -17,6 +17,8 @@ from .api import (
     ReauthRequired,
     categorize_parcels,
     filter_ignored,
+    is_unsent,
+    split_unsent,
 )
 from .const import (
     AUTH_OAUTH,
@@ -25,10 +27,12 @@ from .const import (
     CONF_IGNORED_SHIPMENTS,
     CONF_REFRESH_TOKEN,
     CONF_SCAN_INTERVAL,
+    CONF_UNSENT_DAYS,
     DEFAULT_ARCHIVE_LIMIT,
     DEFAULT_BASE,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_UA,
+    DEFAULT_UNSENT_DAYS,
     DOMAIN,
 )
 from .pickup import group_qr_data_url, pickup_groups
@@ -69,6 +73,24 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
         # share in the parcel payload on the next poll, so without this a share
         # issued between two refreshes would be re-sent.
         self._shared_marks: set[tuple[str, str]] = set()
+        # Shipment number -> ShipX created_at of never-sent labels (issue #4).
+        # A label's creation date never changes, so one lookup per parcel per
+        # Home Assistant run is enough; a failed lookup (None) is retried.
+        self._created: dict[str, str | None] = {}
+
+    @property
+    def unsent_days(self) -> int:
+        return int(self.entry.options.get(CONF_UNSENT_DAYS, DEFAULT_UNSENT_DAYS))
+
+    def _created_dates(self, cat: dict) -> dict[str, str | None]:
+        """ShipX creation dates of the never-sent parcels. Blocking, executor only."""
+        if self.unsent_days <= 0:
+            return {}
+        for row in cat.get("in_transit", []):
+            number = row.get("shipment")
+            if number and is_unsent(row) and not self._created.get(number):
+                self._created[number] = self._api.shipx_created_at(number)
+        return self._created
 
     @property
     def archive_limit(self) -> int:
@@ -125,6 +147,7 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             categorize_parcels(parcels),
             set(self.entry.options.get(CONF_IGNORED_SHIPMENTS, [])),
         )
+        cat = split_unsent(cat, self._created_dates(cat), self.unsent_days, datetime.now(UTC))
         cat["archived"].sort(
             key=lambda p: p.get("stored") or p.get("expiry") or "", reverse=True
         )
@@ -139,10 +162,12 @@ class InPostCoordinator(DataUpdateCoordinator[dict]):
             "pickup_groups": groups,
             "in_transit": cat["in_transit"],
             "archived": cat["archived"],
+            "unsent": cat["unsent"],
             "counts": {
                 "ready": len(cat["ready"]),
                 "in_transit": len(cat["in_transit"]),
                 "archived": len(cat["archived"]),
+                "unsent": len(cat["unsent"]),
             },
         }
 

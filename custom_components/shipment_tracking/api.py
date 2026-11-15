@@ -24,8 +24,9 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass
+from datetime import datetime
 
-from .const import inpost_canonical
+from .const import SHIPX_TRACKING, UNSENT, inpost_canonical
 
 OAUTH_AUTHORIZE_URL = "https://account.inpost-group.com/oauth2/authorize"
 OAUTH_REDIRECT_URI = "https://account.inpost-group.com/callback"
@@ -309,6 +310,50 @@ def filter_ignored(cat: dict[str, list[dict]], ignored: set[str]) -> dict[str, l
     }
 
 
+def is_unsent(row: dict) -> bool:
+    """A label exists but the parcel never reached InPost (CONFIRMED etc.)."""
+    return row.get("state") == "in_transit" and row.get("status") in UNSENT
+
+
+def parse_created(value: str | None) -> datetime | None:
+    """ShipX ``created_at`` (ISO 8601 with offset) to an aware datetime."""
+    if not value:
+        return None
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return None
+
+
+def split_unsent(
+    cat: dict[str, list[dict]],
+    created: dict[str, str | None],
+    days: int,
+    now: datetime,
+) -> dict[str, list[dict]]:
+    """Move in-transit parcels that were never sent for ``days`` days to ``unsent``.
+
+    ``created`` maps shipment number to the ShipX ``created_at``. A parcel with
+    no known creation date stays in transit: better to show one parcel too many
+    than to hide one that may still come. ``days`` = 0 turns the move off, so the
+    result always has an ``unsent`` bucket and the callers need no special case.
+    Each moved row gets ``created`` (ISO string) and ``unsent_days`` (int).
+    """
+    out = {**cat, "unsent": []}
+    if days <= 0:
+        return out
+    keep: list[dict] = []
+    for row in cat.get("in_transit", []):
+        when = parse_created(created.get(row.get("shipment"))) if is_unsent(row) else None
+        age = (now - when).days if when else None
+        if age is not None and age >= days:
+            out["unsent"].append({**row, "created": created[row["shipment"]], "unsent_days": age})
+        else:
+            keep.append(row)
+    out["in_transit"] = keep
+    return out
+
+
 class InPostApi:
     """Blocking InPost client. One instance per account is fine but stateless
     except for base/UA; the auth token is passed per call by the coordinator."""
@@ -458,6 +503,22 @@ class InPostApi:
                 "phone": _phone_value(phone),
             })
         return out
+
+    def shipx_created_at(self, number: str) -> str | None:
+        """Creation date of a label from the public ShipX tracking, or None.
+
+        No auth and no account data: the same page anyone gets for a tracking
+        number. Any failure answers None, which keeps the parcel in transit.
+        """
+        url = SHIPX_TRACKING.format(number=urllib.parse.quote(number, safe=""))
+        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": self._ua})
+        try:
+            st, _h, d = self._do(req)
+        except InPostError:
+            return None
+        if st != 200 or not isinstance(d, dict):
+            return None
+        return d.get("created_at")
 
     def share_parcels(
         self, auth_token: str, shipments: list[str], friend_uuids: list[str]

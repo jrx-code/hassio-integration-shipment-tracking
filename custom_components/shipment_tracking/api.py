@@ -415,6 +415,30 @@ class InPostApi:
             h["If-None-Match"] = etag
         return self._do(urllib.request.Request(self._base + path, headers=h, method="GET"))
 
+    def request(self, method: str, path: str, token: str, body: dict | None = None,
+                query: dict | None = None):
+        """Any other InPost Mobile call (docs/INPOST_MOBILE_API.md); blocking.
+
+        Returns the decoded JSON body of a 2xx answer. Everything else raises
+        InPostError with "HTTP <status>" in the message, which is what
+        `_authorized` looks for to retry once with a fresh token.
+        """
+        url = self._base + path
+        if query:
+            clean = {k: v for k, v in query.items() if v is not None}
+            if clean:
+                url += "?" + urllib.parse.urlencode(clean)
+        headers = {"User-Agent": self._ua, "Authorization": token, "X-App-Id": APP_ID,
+                   "Accept": "application/json"}
+        data = None
+        if body is not None:
+            headers["Content-Type"] = "application/json; charset=UTF-8"
+            data = json.dumps(body).encode()
+        st, _h, d = self._do(urllib.request.Request(url, data=data, headers=headers, method=method))
+        if not 200 <= st < 300:
+            raise InPostError(f"{method} {path} failed: HTTP {st} {d}")
+        return d
+
     # ---------------- auth (OAuth2 + PKCE) ----------------
     def _token_request(self, form: dict) -> Tokens:
         st, _h, d = self._post_form(OAUTH_TOKEN_PATH, form)

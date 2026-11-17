@@ -29,6 +29,8 @@ from .coordinator_orlen import OrlenCoordinator
 from .coordinator_orlen_account import OrlenAccountCoordinator
 from .coordinator_pocztex import PocztexCoordinator
 from .logos import async_register as async_register_logos
+from .services_dpd import async_register_dpd_services
+from .services_inpost import async_register_inpost_services
 from .share import auto_share_unique_id, peer_entries, share_unique_id
 
 _LOGGER = logging.getLogger(__name__)
@@ -72,6 +74,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
     )
     if carrier == CARRIER_DPD:
         coordinator = DpdCoordinator(hass, entry)
+        async_register_dpd_services(hass)
     elif carrier == CARRIER_FEDEX:
         coordinator = FedexCoordinator(hass, entry)
     elif carrier == CARRIER_POCZTEX:
@@ -86,6 +89,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ShipmentConfigEntry) -> 
         coordinator = AllegroOneCoordinator(hass, entry)
     else:
         coordinator = InPostCoordinator(hass, entry)
+        async_register_inpost_services(hass)
     await coordinator.async_config_entry_first_refresh()
 
     # Snapshot of the options this setup ran with — _async_reload_on_update

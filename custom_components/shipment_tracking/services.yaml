@@ -1,0 +1,172 @@
+dpd_parcel_options:
+  fields:
+    waybill:
+      required: true
+      example: "1054817095167U"
+      selector:
+        text:
+dpd_parcel_action:
+  fields:
+    waybill:
+      required: true
+      selector:
+        text:
+    action:
+      required: true
+      selector:
+        select:
+          options: [change_date, redirect, change_address, refuse]
+          translation_key: dpd_action
+    date:
+      example: "2026-11-17"
+      selector:
+        text:
+    point_id:
+      example: "PL81900"
+      selector:
+        text:
+    address:
+      selector:
+        text:
+    city:
+      selector:
+        text:
+    postal_code:
+      selector:
+        text:
+    note:
+      selector:
+        text:
+    reason:
+      selector:
+        text:
+dpd_points:
+  fields:
+    latitude:
+      required: true
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+    longitude:
+      required: true
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+    count:
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 30
+    radius_km:
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 3
+    waybill:
+      selector:
+        text:
+
+inpost_query:
+  fields:
+    what:
+      required: true
+      selector:
+        select:
+          options: [parcel, multi_parcel, sent, sent_parcel, point, points, friends, parcel_friends, return_tickets, return_ticket, returnable, return_organizations, return_reasons, return_form, notifications, prices, preferences, notification_preferences]
+    account:
+      selector:
+        text:
+    shipment_number:
+      selector:
+        text:
+    uuid:
+      selector:
+        text:
+    name:
+      selector:
+        text:
+    search:
+      selector:
+        text:
+    latitude:
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+    longitude:
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any
+
+inpost_action:
+  fields:
+    action:
+      required: true
+      selector:
+        select:
+          options: [track, untrack, easy_access, share, friend_invite, friend_rename, friend_remove, invitation_validate, invitation_accept, notifications_read, notifications_read_all, return_parcel, return_organization, send_parcel]
+    account:
+      selector:
+        text:
+    dry_run:
+      default: false
+      selector:
+        boolean:
+    confirm:
+      default: false
+      selector:
+        boolean:
+    shipment_number:
+      selector:
+        text:
+
+inpost_locker:
+  fields:
+    flow:
+      required: true
+      selector:
+        select:
+          options: [collect, send, return]
+    step:
+      required: true
+      selector:
+        select:
+          options: [open, reopen, closed, status, terminate, claim, confirm]
+    account:
+      selector:
+        text:
+    dry_run:
+      default: false
+      selector:
+        boolean:
+    confirm:
+      default: false
+      selector:
+        boolean:
+    shipment_number:
+      selector:
+        text:
+    session:
+      selector:
+        text:
+    latitude:
+      selector:
+        number:
+          min: -90
+          max: 90
+          step: any
+    longitude:
+      selector:
+        number:
+          min: -180
+          max: 180
+          step: any

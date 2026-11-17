@@ -161,6 +161,137 @@
       }
     }
   },
+  "services": {
+    "dpd_parcel_options": {
+      "name": "DPD parcel options",
+      "description": "What the DPD Mobile app offers for a parcel now: allowed operations, delivery dates, redirect requirements and the pickup PIN.",
+      "fields": {
+        "waybill": {
+          "name": "Waybill",
+          "description": "DPD parcel number of a configured DPD account."
+        }
+      }
+    },
+    "dpd_parcel_action": {
+      "name": "DPD parcel action",
+      "description": "Change the delivery date, redirect to a Pickup point, change the address or refuse a parcel. Changes the real delivery.",
+      "fields": {
+        "waybill": {
+          "name": "Waybill",
+          "description": "DPD parcel number."
+        },
+        "action": {
+          "name": "Action",
+          "description": "What to do with the parcel."
+        },
+        "date": {
+          "name": "Date",
+          "description": "One of the dates from DPD parcel options (YYYY-MM-DD)."
+        },
+        "point_id": {
+          "name": "Pickup point",
+          "description": "Point id from DPD points, e.g. PL81900."
+        },
+        "address": {
+          "name": "Street and number",
+          "description": "New delivery address."
+        },
+        "city": {
+          "name": "City",
+          "description": "City of the new address."
+        },
+        "postal_code": {
+          "name": "Postal code",
+          "description": "Postal code of the new address."
+        },
+        "note": {
+          "name": "Note for the courier",
+          "description": "Optional."
+        },
+        "reason": {
+          "name": "Reason",
+          "description": "Why the parcel is refused."
+        }
+      }
+    },
+    "dpd_points": {
+      "name": "DPD Pickup points",
+      "description": "Pickup points and boxes near a place.",
+      "fields": {
+        "latitude": {
+          "name": "Latitude",
+          "description": "Search centre."
+        },
+        "longitude": {
+          "name": "Longitude",
+          "description": "Search centre."
+        },
+        "count": {
+          "name": "Count",
+          "description": "How many points."
+        },
+        "radius_km": {
+          "name": "Radius",
+          "description": "Search radius in km (DPD allows at most 3)."
+        },
+        "waybill": {
+          "name": "Waybill",
+          "description": "Optional: search with the account that owns this parcel."
+        }
+      }
+    }
+  },
+  "selector": {
+    "dpd_action": {
+      "options": {
+        "change_date": "Change the delivery date",
+        "redirect": "Redirect to a Pickup point",
+        "change_address": "Change the delivery address",
+        "refuse": "Refuse the parcel"
+      }
+    }
+  },
+  "exceptions": {
+    "dpd_unknown_parcel": {
+      "message": "No configured DPD account has parcel {waybill}."
+    },
+    "dpd_operation_not_allowed": {
+      "message": "DPD does not allow {action} for parcel {waybill} now."
+    },
+    "dpd_missing_fields": {
+      "message": "Missing fields: {fields}."
+    },
+    "dpd_date_not_offered": {
+      "message": "DPD does not offer {date} for this parcel."
+    },
+    "dpd_no_account": {
+      "message": "No DPD account is set up."
+    },
+    "dpd_auth": {
+      "message": "The DPD session expired, sign in again: {error}"
+    },
+    "dpd_failed": {
+      "message": "DPD refused the request: {error}"
+    },
+    "inpost_no_account": {
+      "message": "No InPost account is set up."
+    },
+    "inpost_unknown_account": {
+      "message": "No InPost account matches {account}."
+    },
+    "inpost_missing_fields": {
+      "message": "Missing fields: {fields}."
+    },
+    "inpost_needs_confirm": {
+      "message": "{action} changes a real parcel or opens a real compartment: send confirm: true."
+    },
+    "inpost_auth": {
+      "message": "The InPost session expired, sign in again: {error}"
+    },
+    "inpost_failed": {
+      "message": "InPost refused the request: {error}"
+    }
+  },
   "entity": {
     "sensor": {
       "unsent": {

@@ -161,6 +161,137 @@
       }
     }
   },
+  "services": {
+    "dpd_parcel_options": {
+      "name": "Opcje paczki DPD",
+      "description": "To, co aplikacja DPD Mobile oferuje teraz dla paczki: dozwolone operacje, terminy doręczenia, wymagania przekierowania i PIN odbioru.",
+      "fields": {
+        "waybill": {
+          "name": "Numer paczki",
+          "description": "Numer paczki DPD ze skonfigurowanego konta."
+        }
+      }
+    },
+    "dpd_parcel_action": {
+      "name": "Akcja na paczce DPD",
+      "description": "Zmiana daty doręczenia, przekierowanie do punktu Pickup, zmiana adresu albo odmowa przyjęcia. Zmienia prawdziwą przesyłkę.",
+      "fields": {
+        "waybill": {
+          "name": "Numer paczki",
+          "description": "Numer paczki DPD."
+        },
+        "action": {
+          "name": "Akcja",
+          "description": "Co zrobić z paczką."
+        },
+        "date": {
+          "name": "Data",
+          "description": "Jedna z dat z opcji paczki DPD (RRRR-MM-DD)."
+        },
+        "point_id": {
+          "name": "Punkt Pickup",
+          "description": "Identyfikator punktu z wyszukiwarki punktów DPD, np. PL81900."
+        },
+        "address": {
+          "name": "Ulica i numer",
+          "description": "Nowy adres doręczenia."
+        },
+        "city": {
+          "name": "Miejscowość",
+          "description": "Miejscowość nowego adresu."
+        },
+        "postal_code": {
+          "name": "Kod pocztowy",
+          "description": "Kod pocztowy nowego adresu."
+        },
+        "note": {
+          "name": "Uwagi dla kuriera",
+          "description": "Opcjonalnie."
+        },
+        "reason": {
+          "name": "Powód",
+          "description": "Dlaczego odmawiasz przyjęcia."
+        }
+      }
+    },
+    "dpd_points": {
+      "name": "Punkty DPD Pickup",
+      "description": "Punkty i automaty DPD Pickup w pobliżu miejsca.",
+      "fields": {
+        "latitude": {
+          "name": "Szerokość",
+          "description": "Środek wyszukiwania."
+        },
+        "longitude": {
+          "name": "Długość",
+          "description": "Środek wyszukiwania."
+        },
+        "count": {
+          "name": "Liczba",
+          "description": "Ile punktów."
+        },
+        "radius_km": {
+          "name": "Promień",
+          "description": "Promień wyszukiwania w km (DPD pozwala najwyżej na 3)."
+        },
+        "waybill": {
+          "name": "Numer paczki",
+          "description": "Opcjonalnie: szukaj kontem, do którego należy ta paczka."
+        }
+      }
+    }
+  },
+  "selector": {
+    "dpd_action": {
+      "options": {
+        "change_date": "Zmień datę doręczenia",
+        "redirect": "Przekieruj do punktu Pickup",
+        "change_address": "Zmień adres doręczenia",
+        "refuse": "Odmów przyjęcia"
+      }
+    }
+  },
+  "exceptions": {
+    "dpd_unknown_parcel": {
+      "message": "Żadne skonfigurowane konto DPD nie ma paczki {waybill}."
+    },
+    "dpd_operation_not_allowed": {
+      "message": "DPD nie pozwala teraz na {action} dla paczki {waybill}."
+    },
+    "dpd_missing_fields": {
+      "message": "Brakuje pól: {fields}."
+    },
+    "dpd_date_not_offered": {
+      "message": "DPD nie oferuje daty {date} dla tej paczki."
+    },
+    "dpd_no_account": {
+      "message": "Nie ma skonfigurowanego konta DPD."
+    },
+    "dpd_auth": {
+      "message": "Sesja DPD wygasła, zaloguj się ponownie: {error}"
+    },
+    "dpd_failed": {
+      "message": "DPD odrzuciło zapytanie: {error}"
+    },
+    "inpost_no_account": {
+      "message": "Nie skonfigurowano konta InPost."
+    },
+    "inpost_unknown_account": {
+      "message": "Żadne konto InPost nie pasuje do {account}."
+    },
+    "inpost_missing_fields": {
+      "message": "Brakuje pól: {fields}."
+    },
+    "inpost_needs_confirm": {
+      "message": "{action} zmienia prawdziwą paczkę albo otwiera prawdziwą skrytkę: wyślij confirm: true."
+    },
+    "inpost_auth": {
+      "message": "Sesja InPost wygasła, zaloguj się ponownie: {error}"
+    },
+    "inpost_failed": {
+      "message": "InPost odrzucił żądanie: {error}"
+    }
+  },
   "entity": {
     "sensor": {
       "unsent": {

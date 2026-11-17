@@ -50,6 +50,11 @@ def _active_row(p: dict) -> dict:
             "adres_nadawcy": p.get("sender_address"),
             "gps_doreczenia": p.get("delivery_gps"),
             "kurier": p.get("courier_name"),
+            # newest first, for a parcel timeline (App Hub DPD app)
+            "historia": [
+                {"status": h.get("status"), "data": h.get("date")}
+                for h in sorted(p.get("history") or [], key=lambda h: h.get("date") or "", reverse=True)
+            ],
         }
     )
     if p.get("mps_count"):

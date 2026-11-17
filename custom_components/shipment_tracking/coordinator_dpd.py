@@ -106,9 +106,21 @@ class DpdCoordinator(DataUpdateCoordinator[dict]):
         self.entry = entry
         self._api = DpdApi()
 
+    def access_token(self) -> str:
+        """Blocking: a fresh access token for this account (services use it)."""
+        access, _new_refresh = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
+        return access
+
+    @property
+    def api(self) -> DpdApi:
+        return self._api
+
+    def knows(self, waybill: str) -> bool:
+        return any(p.get("number") == waybill for p in (self.data or {}).get("all", []))
+
     def _fetch(self) -> dict:
         """Blocking fetch — runs in the executor."""
-        access, _new_refresh = self._api.refresh(self.entry.data[CONF_REFRESH_TOKEN])
+        access = self.access_token()
         raw_parcels = self._api.get_parcels(access)
         parcels = []
         for p in raw_parcels:

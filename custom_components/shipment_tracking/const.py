@@ -243,7 +243,7 @@ DPD_REALM = "DPD"
 DPD_CLIENT_ID = "DPDClientMDU"
 DPD_UA = "DPD Mobile"
 DPD_MOBILE_PLATFORM = "android"
-DPD_MOBILE_VERSION = "2.10.2"
+DPD_MOBILE_VERSION = "2.10.18"
 
 # Canonical status buckets -> Polish labels. Raw DPD statuses verified live:
 # READY_TO_SEND, RECEIVED_FROM_SENDER, IN_TRANSPORT, RECEIVED_IN_DEPOT,

@@ -159,6 +159,25 @@ def test_get_parcels_dedupes_overlapping_pages():
     assert out[1]["status"] == "OUT_FOR_DELIVERY"
 
 
+def test_get_parcels_follows_pages_when_etag_header_is_cased_differently():
+    """Header names are case-insensitive: "ETag" must page like "Etag"."""
+    pages = [
+        (200, {"ETag": '"p1"'}, {"more": True, "parcels": [
+            {"shipmentNumber": "111", "status": "DELIVERED"},
+        ]}),
+        (200, {"etag": '"p2"'}, {"more": False, "parcels": [
+            {"shipmentNumber": "222", "status": "READY_TO_PICKUP"},
+        ]}),
+    ]
+
+    class _Paged(_Api):
+        def _get(self, path, token, etag=None):
+            return pages.pop(0)
+
+    out = _Paged().get_parcels("tok")
+    assert [p["shipmentNumber"] for p in out] == ["111", "222"]
+
+
 def test_map_parcel_extracts_owner_phone_from_receiver():
     raw = {
         "shipmentNumber": "111",

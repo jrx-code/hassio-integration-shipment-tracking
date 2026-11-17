@@ -16,6 +16,7 @@ from __future__ import annotations
 import base64
 import hashlib
 import json
+import logging
 import secrets
 import ssl
 import threading
@@ -27,6 +28,8 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from .const import SHIPX_TRACKING, UNSENT, inpost_canonical
+
+_LOGGER = logging.getLogger(__name__)
 
 OAUTH_AUTHORIZE_URL = "https://account.inpost-group.com/oauth2/authorize"
 OAUTH_REDIRECT_URI = "https://account.inpost-group.com/callback"
@@ -489,7 +492,7 @@ class InPostApi:
         parcels: list[dict] = []
         etag: str | None = None
         seen: set[str] = set()
-        for _ in range(20):  # hard cap; typical account 1-3 pages
+        for page in range(20):  # hard cap; typical account 1-3 pages
             st, headers, d = self._get("/v4/parcels/tracked", auth_token, etag)
             if st == 304:
                 if not parcels:
@@ -498,7 +501,19 @@ class InPostApi:
             if st != 200:
                 raise InPostError(f"get_parcels failed: HTTP {st} {d}")
             parcels.extend(d.get("parcels", []))
-            new_etag = headers.get("Etag")
+            # HTTP header names are case-insensitive; a server (or proxy) that
+            # answers "ETag" instead of "Etag" used to end paging after the
+            # oldest page and hide every recent parcel.
+            new_etag = next((v for k, v in headers.items() if k.lower() == "etag"), None)
+            _LOGGER.debug(
+                "tracked page %d: %d parcels, more=%s, etag=%s",
+                page + 1, len(d.get("parcels", [])), d.get("more"), bool(new_etag),
+            )
+            if d.get("more") and not new_etag:
+                _LOGGER.warning(
+                    "InPost says more pages exist but sent no ETag; "
+                    "recent parcels may be missing (headers: %s)", sorted(headers),
+                )
             if not d.get("more") or new_etag in seen or not new_etag:
                 break
             seen.add(new_etag)
